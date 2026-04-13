@@ -1,155 +1,146 @@
-export interface ONFlow {
-  id: string
-  fecha_pago: string
-  emisor: string
-  ticker: string
-  interes: number
-  amortizacion: number
-  total: number
-  moneda_pago: string
-  moneda_denominacion: string
-  dias: number
-  cupon: number
-  valor_residual: number
-  created_at: string
-  updated_at: string
-}
+// ── Nuevo schema unificado ────────────────────────────────
 
-export interface ONDetails {
-  id: string
-  ticker: string
-  fecha_vencimiento: string | null
-  legislacion: string | null
+export interface Instrument {
+  symbol:            string
+  instrument_type:   "ON" | "HD" | "ARS"
+  segment:           string
+  is_active:         boolean
+  emisor:            string | null
+  legislacion:       string | null
   jurisdiccion_pago: string | null
-  lamina_minima: number | null
-  calleable: boolean
-  monto_residual: number | null
-  created_at: string
-  updated_at: string
+  fecha_vencimiento: string | null
+  lamina_minima:     number | null
+  monto_residual:    number | null
+  calleable:         boolean | null
+  moneda:            string | null
+  tipo:              string | null
+  cer_emision:       number | null
+  cupon:             number | null
 }
 
-export interface LastPrice {
-  symbol: string
-  price_usd: number | null
-  ytm: number | null
-  duration_y: number | null
-  price_ars: number | null
-  bid: number | null
-  ask: number | null
-  fx_mep: number | null
-  last: number | null
-  change: number | null
+export interface InstrumentFlow {
+  id:            string
+  symbol:        string
+  fecha_pago:    string
+  interes:       number | null
+  amortizacion:  number | null
+  total:         number | null
+  moneda_pago:   string | null
+  dias:          number | null
+  cupon:         number | null
+  valor_residual:number | null
+  tipo:          string | null
+}
+
+export interface Price {
+  symbol:        string
+  last:          number | null
+  bid:           number | null
+  ask:           number | null
+  price_ars:     number | null
+  fx_mep:        number | null
+  ytm:           number | null
+  duration_y:    number | null
+  tna:           number | null
   closing_price: number | null
-  ts: string | null
+  change_pct:    number | null
+  ts:            string | null
 }
 
-export interface ONWithDetails extends ONFlow {
-  details?: ONDetails
-  lastPrice?: LastPrice
+// ── Tipos combinados para compatibilidad con componentes ──
+
+export type ONWithDetails = {
+  id:            string
+  ticker:        string
+  emisor:        string
+  fecha_pago:    string
+  interes:       number | null
+  amortizacion:  number | null
+  total:         number | null
+  moneda_pago:   string | null
+  dias:          number | null
+  cupon:         number | null
+  valor_residual:number | null
+  details?: {
+    ticker:            string
+    fecha_vencimiento: string | null
+    legislacion:       string | null
+    jurisdiccion_pago: string | null
+    lamina_minima:     number | null
+    calleable:         boolean | null
+    monto_residual:    number | null
+  } | null
+  lastPrice?: {
+    symbol:        string
+    last:          number | null
+    change_pct:    number | null
+    change:        number | null   // alias de change_pct
+    price_usd:     number | null   // alias de last
+    ytm:           number | null
+    duration_y:    number | null
+    tna:           number | null
+    bid:           number | null
+    ask:           number | null
+    closing_price: number | null
+    ts:            string | null
+  } | null
 }
 
-export interface SoberanoFlow {
-  id: string
-  fecha_pago: string
-  emisor: string
-  ticker: string
-  interes: number
-  amortizacion: number
-  total: number
-  moneda_pago: string
-  moneda_denominacion: string
-  dias: number
-  cupon: number
-  valor_residual: number
-  created_at: string
-  updated_at: string
+export type SoberanoWithDetails = {
+  id:            string
+  ticker:        string
+  emisor:        string
+  fecha_pago:    string
+  interes:       number | null
+  amortizacion:  number | null
+  total:         number | null
+  moneda_pago:   string | null
+  dias:          number | null
+  cupon:         number | null
+  valor_residual:number | null
+  details?: {
+    ticker:            string
+    fecha_vencimiento: string | null
+    legislacion:       string | null
+    jurisdiccion_pago: string | null
+    lamina_minima:     number | null
+    calleable:         boolean | null
+    monto_residual:    number | null
+    moneda:            string | null
+    tipo:              string | null
+    cer_emision:       number | null
+  } | null
+  lastPrice?: {
+    symbol:        string
+    last:          number | null
+    change_pct:    number | null
+    change:        number | null
+    price_usd:     number | null
+    ytm:           number | null
+    duration_y:    number | null
+    tna:           number | null
+    bid:           number | null
+    ask:           number | null
+    closing_price: number | null
+    ts:            string | null
+  } | null
 }
 
-export interface SoberanoDetails {
-  id: string
-  ticker: string
-  fecha_vencimiento: string | null
-  legislacion: string | null
-  jurisdiccion_pago: string | null
-  lamina_minima: number | null
-  calleable: boolean
-  monto_residual: number | null
-  created_at: string
-  updated_at: string
-}
-
-export interface SoberanoWithDetails extends SoberanoFlow {
-  details?: SoberanoDetails
-  lastPrice?: LastPrice
+export interface CerHistorico {
+  fecha:     string
+  valor_cer: number
 }
 
 export interface ExcelRow {
   "Fecha de pago": string
-  Emisor: string
-  Ticker: string
-  Interés: number
-  Amortización: number
-  Total: number
-  "Mon. pago": string
+  Emisor:          string
+  Ticker:          string
+  Interés:         number
+  Amortización:    number
+  Total:           number
+  "Mon. pago":     string
   "Mon. denom. Base": string
-  Días: number
-  Cupón: number
-  "Valor residual": number
-}
-
-export interface ExcelSoberanoRow {
-  "Fecha de pago": string
-  Emisor: string
-  Ticker: string
-  Interés: number
-  Amortización: number
-  Total: number
-  "Mon. pago": string
-  "Mon. denom. Base": string
-  Días: number
-  Cupón: number
-  "Valor residual": number
-}
-
-export interface ExcelSoberanoArsRow {
-  "Fecha de pago": string
-  Emisor: string
-  Ticker: string
-  Interés: number
-  Amortización: number
-  Total: number
-  "Mon. pago": string
-  "Mon. denom. Base": string
-  Días: number
-  Cupón: number
-  "Valor residual": number
-}
-
-export interface AllTicker {
-  ticker: string
-  tipo_activo: "Obligacion Negociable" | "Soberanos Hard Dollar" | "Soberanos ARS" // Added Soberanos ARS to the union type
-  fecha_vencimiento: string | null
-  monto_residual: number | null
-  calleable: boolean
-  legislacion: string | null
-  jurisdiccion_pago: string | null
-  lamina_minima: number | null
-  sector: string | null
-  rating: string | null
-  moneda: string | null
-  created_at: string
-  updated_at: string
-}
-
-export interface CerHistorico {
-  id: string
-  fecha: string
-  valor_cer: number
-  created_at: string
-  updated_at: string
-}
-
-export interface ExcelCerRow {
-  fecha: string
-  valor_cer: number
+  Días:            number
+  Cupón:           number
+  "Valor residual":number
 }
