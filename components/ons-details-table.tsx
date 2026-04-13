@@ -190,7 +190,7 @@ export function ONDetailsTable({ flows }: ONDetailsTableProps) {
               <TableHead className="text-center">
                 <Button
                   variant="ghost"
-                  onClick={() => handleSort("lastPrice.price_usd")}
+                  onClick={() => handleSort("lastPrice.last")}
                   className="h-auto p-0 font-semibold"
                 >
                   Precio USD <ArrowUpDown className="ml-2 h-4 w-4" />
@@ -257,7 +257,7 @@ export function ONDetailsTable({ flows }: ONDetailsTableProps) {
               <TableRow key={flow.id}>
                 <TableCell className="text-left">{flow.emisor}</TableCell>
                 <TableCell className="text-center font-medium">{flow.ticker}</TableCell>
-                <TableCell className="text-center">{formatCurrency(flow.lastPrice?.price_usd ?? null)}</TableCell>
+                <TableCell className="text-center">{formatCurrency(flow.lastPrice?.last ?? null)}</TableCell>
                 <TableCell className="text-center">
                   <span
                     className={`${
