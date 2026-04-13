@@ -32,7 +32,7 @@ export function AllTickersTable() {
 
   const fetchAllTickers = async () => {
     try {
-      const { data, error } = await supabase.from("all_tickers").select("*").order("ticker")
+      const { data, error } = await supabase.from("instruments").select("*").order("symbol")
 
       if (error) throw error
       setTickers(data || [])
