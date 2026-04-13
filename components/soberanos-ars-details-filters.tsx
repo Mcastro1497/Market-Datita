@@ -154,7 +154,7 @@ export function SoberanosArsDetailsFilters({ monedas, emisores, onFiltersChange 
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas las monedas</SelectItem>
-                {monedas.map((m) => (
+                {monedas.filter(Boolean).map((m) => (
                   <SelectItem key={m} value={m}>
                     {m}
                   </SelectItem>
