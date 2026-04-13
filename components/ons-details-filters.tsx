@@ -172,7 +172,7 @@ export function ONSDetailsFilters({ legislaciones, jurisdicciones, emisores, onF
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas las legislaciones</SelectItem>
-                {legislaciones.map((leg) => (
+                {legislaciones.filter(Boolean).map((leg) => (
                   <SelectItem key={leg} value={leg}>
                     {leg}
                   </SelectItem>
@@ -189,7 +189,7 @@ export function ONSDetailsFilters({ legislaciones, jurisdicciones, emisores, onF
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">Todas las jurisdicciones</SelectItem>
-                {jurisdicciones.map((jur) => (
+                {jurisdicciones.filter(Boolean).map((jur) => (
                   <SelectItem key={jur} value={jur}>
                     {jur}
                   </SelectItem>
