@@ -8,32 +8,24 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Calendar } from "@/components/ui/calendar"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Checkbox } from "@/components/ui/checkbox"
-import { CalendarIcon, X, Search, DollarSign } from "lucide-react"
+import { CalendarIcon, X, Search, PiggyBank } from "lucide-react"
 import { format } from "date-fns"
 import { es } from "date-fns/locale"
 
-interface SoberanosDetailsFiltersProps {
-  legislaciones: string[]
-  jurisdicciones: string[]
+interface SoberanosArsDetailsFiltersProps {
+  monedas: string[]
   emisores: string[]
   onFiltersChange: (filters: {
-    legislacion?: string
-    jurisdiccionPago?: string
+    moneda?: string
     emisores?: string[]
     fechaVencimientoHasta?: Date
   }) => void
 }
 
-const STORAGE_KEY = "soberanosDetailsFilters" // Added storage key for persistence
+const STORAGE_KEY = "soberanosArsDetailsFilters" // Added storage key for persistence
 
-export function SoberanosDetailsFilters({
-  legislaciones,
-  jurisdicciones,
-  emisores,
-  onFiltersChange,
-}: SoberanosDetailsFiltersProps) {
-  const [legislacion, setLegislacion] = useState<string>("all")
-  const [jurisdiccionPago, setJurisdiccionPago] = useState<string>("all")
+export function SoberanosArsDetailsFilters({ monedas, emisores, onFiltersChange }: SoberanosArsDetailsFiltersProps) {
+  const [moneda, setMoneda] = useState<string>("all")
   const [selectedEmisores, setSelectedEmisores] = useState<string[]>([])
   const [fechaVencimientoHasta, setFechaVencimientoHasta] = useState<Date>()
   const [emisorSearch, setEmisorSearch] = useState<string>("")
@@ -44,14 +36,12 @@ export function SoberanosDetailsFilters({
       const raw = localStorage.getItem(STORAGE_KEY)
       if (!raw) return
       const parsed = JSON.parse(raw) as {
-        legislacion?: string
-        jurisdiccionPago?: string
+        moneda?: string
         emisores?: string[]
         fechaVencimientoHasta?: string
       }
 
-      setLegislacion(parsed.legislacion ?? "all")
-      setJurisdiccionPago(parsed.jurisdiccionPago ?? "all")
+      setMoneda(parsed.moneda ?? "all")
       setSelectedEmisores(parsed.emisores ?? [])
       if (parsed.fechaVencimientoHasta) {
         const d = new Date(parsed.fechaVencimientoHasta)
@@ -73,8 +63,7 @@ export function SoberanosDetailsFilters({
   useEffect(() => {
     try {
       const payload = {
-        legislacion,
-        jurisdiccionPago,
+        moneda,
         emisores: selectedEmisores,
         fechaVencimientoHasta: fechaVencimientoHasta?.toISOString(),
       }
@@ -82,7 +71,7 @@ export function SoberanosDetailsFilters({
     } catch {
       // no storage available
     }
-  }, [legislacion, jurisdiccionPago, selectedEmisores, fechaVencimientoHasta])
+  }, [moneda, selectedEmisores, fechaVencimientoHasta])
 
   const filteredEmisores = emisores.filter((emisor) => emisor.toLowerCase().includes(emisorSearch.toLowerCase()))
 
@@ -129,16 +118,14 @@ export function SoberanosDetailsFilters({
 
   const handleApplyFilters = () => {
     onFiltersChange({
-      legislacion: legislacion === "all" ? undefined : legislacion,
-      jurisdiccionPago: jurisdiccionPago === "all" ? undefined : jurisdiccionPago,
+      moneda: moneda === "all" ? undefined : moneda,
       emisores: selectedEmisores.length > 0 ? selectedEmisores : undefined,
       fechaVencimientoHasta,
     })
   }
 
   const handleClearFilters = () => {
-    setLegislacion("all")
-    setJurisdiccionPago("all")
+    setMoneda("all")
     setSelectedEmisores([])
     setFechaVencimientoHasta(undefined)
     setEmisorSearch("")
@@ -153,40 +140,23 @@ export function SoberanosDetailsFilters({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <DollarSign className="h-5 w-5 text-green-600" />
-          Filtros - Soberanos Hard Dollar
+          <PiggyBank className="h-5 w-5 text-orange-600" />
+          Filtros - Soberanos ARS
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <div>
-            <label className="text-sm font-medium mb-2 block">Legislación</label>
-            <Select value={legislacion} onValueChange={setLegislacion}>
+            <label className="text-sm font-medium mb-2 block">Moneda</label>
+            <Select value={moneda} onValueChange={setMoneda}>
               <SelectTrigger>
-                <SelectValue placeholder="Todas las legislaciones" />
+                <SelectValue placeholder="Todas las monedas" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">Todas las legislaciones</SelectItem>
-                {legislaciones.map((leg) => (
-                  <SelectItem key={leg} value={leg}>
-                    {leg}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <label className="text-sm font-medium mb-2 block">Jurisdicción de Pago</label>
-            <Select value={jurisdiccionPago} onValueChange={setJurisdiccionPago}>
-              <SelectTrigger>
-                <SelectValue placeholder="Todas las jurisdicciones" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas las jurisdicciones</SelectItem>
-                {jurisdicciones.map((jur) => (
-                  <SelectItem key={jur} value={jur}>
-                    {jur}
+                <SelectItem value="all">Todas las monedas</SelectItem>
+                {monedas.filter(Boolean).map((m) => (
+                  <SelectItem key={m} value={m}>
+                    {m}
                   </SelectItem>
                 ))}
               </SelectContent>
