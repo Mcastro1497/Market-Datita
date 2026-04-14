@@ -214,7 +214,7 @@ export function SoberanosDetailsFilters({
                   </div>
                 </div>
                 <div className="space-y-2 max-h-60 overflow-y-auto">
-                  {filteredEmisores.map((emisor) => (
+                  {filteredEmisores.filter(Boolean).map((emisor) => (
                     <div key={emisor} className="flex items-center space-x-2">
                       <Checkbox
                         id={emisor}
