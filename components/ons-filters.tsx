@@ -191,7 +191,7 @@ export function ONSFilters({ emisores, onFiltersChange }: FiltersProps) {
                 </div>
                 <div className="max-h-60 overflow-y-auto p-3">
                   {filteredEmisores.length > 0 ? (
-                    filteredEmisores.map((emisor) => (
+                    filteredEmisores.filter(Boolean).map((emisor) => (
                       <div key={emisor} className="flex items-center space-x-2 py-1">
                         <Checkbox
                           id={`emisor-${emisor}`}
