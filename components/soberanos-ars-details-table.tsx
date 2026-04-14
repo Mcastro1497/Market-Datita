@@ -172,7 +172,7 @@ export function SoberanosArsDetailsTable({ flows, activeTab }: SoberanosArsDetai
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos los emisores</SelectItem>
-            {uniqueEmisors.map((emisor) => (
+            {uniqueEmisors.filter(Boolean).map((emisor) => (
               <SelectItem key={emisor} value={emisor}>
                 {emisor}
               </SelectItem>
@@ -185,7 +185,7 @@ export function SoberanosArsDetailsTable({ flows, activeTab }: SoberanosArsDetai
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos los tipos</SelectItem>
-            {uniqueTipos.map((tipo) => (
+            {uniqueTipos.filter(Boolean).map((tipo) => (
               <SelectItem key={tipo} value={tipo}>
                 {tipo}
               </SelectItem>
