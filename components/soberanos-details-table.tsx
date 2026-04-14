@@ -166,7 +166,7 @@ export function SoberanosDetailsTable({ flows }: SoberanosDetailsTableProps) {
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">Todos los emisores</SelectItem>
-            {uniqueEmisors.map((emisor) => (
+            {uniqueEmisors.filter(Boolean).map((emisor) => (
               <SelectItem key={emisor} value={emisor}>
                 {emisor}
               </SelectItem>
