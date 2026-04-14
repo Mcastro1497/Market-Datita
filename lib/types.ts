@@ -144,3 +144,35 @@ export interface ExcelRow {
   Cupón:           number
   "Valor residual":number
 }
+
+// ── Aliases para compatibilidad con componentes que usan tipos viejos ──
+
+export type ONFlow = {
+  id:            string
+  fecha_pago:    string
+  emisor:        string
+  ticker:        string
+  interes:       number | null
+  amortizacion:  number | null
+  total:         number | null
+  moneda_pago:   string | null
+  dias:          number | null
+  cupon:         number | null
+  valor_residual:number | null
+}
+
+export type AllTicker = {
+  ticker:            string
+  tipo_activo:       string
+  fecha_vencimiento: string | null
+  monto_residual:    number | null
+  calleable:         boolean | null
+  legislacion:       string | null
+  jurisdiccion_pago: string | null
+  lamina_minima:     number | null
+  sector:            string | null
+  rating:            string | null
+  moneda:            string | null
+  created_at:        string
+  updated_at:        string
+}
