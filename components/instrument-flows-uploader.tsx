@@ -11,7 +11,6 @@ import { createClient } from "@/lib/supabase/client"
 
 interface Props {
   onUploadComplete: () => void
-  instrumentType: "ON" | "HD" | "ARS"
 }
 
 function parseDate(value: any): string | null {
@@ -31,17 +30,11 @@ function parseDate(value: any): string | null {
   return isNaN(date.getTime()) ? null : date.toISOString().split("T")[0]
 }
 
-export function InstrumentFlowsUploader({ onUploadComplete, instrumentType }: Props) {
+export function InstrumentFlowsUploader({ onUploadComplete }: Props) {
   const [uploading, setUploading] = useState(false)
   const [progress, setProgress] = useState(0)
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
   const supabase = createClient()
-
-  const labels = {
-    ON:  { title: "Flujos de ONs",           desc: "Obligaciones Negociables",      color: "text-blue-600"   },
-    HD:  { title: "Flujos de Soberanos HD",  desc: "Soberanos en dólares",          color: "text-green-600"  },
-    ARS: { title: "Flujos de Soberanos ARS", desc: "Soberanos en pesos argentinos", color: "text-orange-600" },
-  }
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const file = acceptedFiles[0]
@@ -59,7 +52,6 @@ export function InstrumentFlowsUploader({ onUploadComplete, instrumentType }: Pr
       const jsonData = XLSX.utils.sheet_to_json(ws) as any[]
 
       setProgress(40)
-      const monedaDefault = instrumentType === "ARS" ? "ARS" : "USD"
 
       const processed = jsonData.map((row: any) => {
         const ticker = (row["Ticker"] || row["ticker"] || "").toString().trim().toUpperCase()
@@ -67,13 +59,13 @@ export function InstrumentFlowsUploader({ onUploadComplete, instrumentType }: Pr
         return {
           symbol:         ticker,
           fecha_pago:     fechaPago,
-          interes:        !isNaN(Number(row["Interés"]))           ? Number(row["Interés"])           : null,
-          amortizacion:   !isNaN(Number(row["Amortización"]))      ? Number(row["Amortización"])      : null,
-          total:          !isNaN(Number(row["Total"]))             ? Number(row["Total"])             : null,
-          moneda_pago:    row["Mon. pago"] || row["moneda_pago"] || monedaDefault,
-          dias:           !isNaN(Number(row["Días"]))              ? Number(row["Días"])              : null,
-          cupon:          !isNaN(Number(row["Cupón"]))             ? Number(row["Cupón"])             : 0,
-          valor_residual: !isNaN(Number(row["Valor residual"]))    ? Number(row["Valor residual"])    : null,
+          interes:        row["Interés"] != null && !isNaN(Number(row["Interés"]))           ? Number(row["Interés"])           : null,
+          amortizacion:   row["Amortización"] != null && !isNaN(Number(row["Amortización"])) ? Number(row["Amortización"])      : null,
+          total:          row["Total"] != null && !isNaN(Number(row["Total"]))               ? Number(row["Total"])             : null,
+          moneda_pago:    row["Mon. pago"] || row["moneda_pago"] || null,
+          dias:           row["Días"] != null && !isNaN(Number(row["Días"]))                 ? Number(row["Días"])              : null,
+          cupon:          row["Cupón"] != null && !isNaN(Number(row["Cupón"]))               ? Number(row["Cupón"])             : null,
+          valor_residual: row["Valor residual"] != null && !isNaN(Number(row["Valor residual"])) ? Number(row["Valor residual"]) : null,
           tipo:           row["tipo"] || row["Tipo"] || null,
           _valid:         !!ticker && !!fechaPago,
         }
@@ -114,7 +106,7 @@ export function InstrumentFlowsUploader({ onUploadComplete, instrumentType }: Pr
       setUploading(false)
       setTimeout(() => setProgress(0), 2000)
     }
-  }, [supabase, onUploadComplete, instrumentType])
+  }, [supabase, onUploadComplete])
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -126,18 +118,15 @@ export function InstrumentFlowsUploader({ onUploadComplete, instrumentType }: Pr
     disabled: uploading,
   })
 
-  const { title, desc, color } = labels[instrumentType]
-
   return (
     <Card className="w-full">
       <CardHeader>
-        <CardTitle className={`flex items-center gap-2 ${color}`}>
+        <CardTitle className="flex items-center gap-2 text-blue-600">
           <FileSpreadsheet className="h-5 w-5" />
-          {title}
+          Cargar Flujos de Pagos
         </CardTitle>
         <CardDescription>
-          {desc} — columnas: Fecha de pago, Ticker, Interés, Amortización, Total, Mon. pago, Días, Cupón, Valor residual
-          {instrumentType === "ARS" ? ", tipo (CER/Fija)" : ""}
+          Columnas requeridas: Ticker, Fecha de pago, Total — Opcionales: Interés, Amortización, Mon. pago, Días, Cupón, Valor residual, tipo
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -153,7 +142,7 @@ export function InstrumentFlowsUploader({ onUploadComplete, instrumentType }: Pr
             <p className="text-blue-600">Soltá el archivo aquí...</p>
           ) : (
             <div>
-              <p className="text-gray-600 mb-2">Arrastrá tu archivo Excel aquí, o hacé clic para seleccionar</p>
+              <p className="text-gray-600 mb-2">Arrastrá tu Excel aquí, o hacé clic para seleccionar</p>
               <p className="text-sm text-gray-500">Formatos: .xlsx, .xls</p>
             </div>
           )}
@@ -162,7 +151,7 @@ export function InstrumentFlowsUploader({ onUploadComplete, instrumentType }: Pr
         {uploading && (
           <div className="mt-4">
             <Progress value={progress} className="w-full" />
-            <p className="text-sm text-gray-600 mt-2">Procesando archivo...</p>
+            <p className="text-sm text-gray-600 mt-2">Procesando...</p>
           </div>
         )}
 
