@@ -54,20 +54,21 @@ export function InstrumentFlowsUploader({ onUploadComplete }: Props) {
       setProgress(40)
 
       const processed = jsonData.map((row: any) => {
-        const ticker = (row["Ticker"] || row["ticker"] || "").toString().trim().toUpperCase()
-        const fechaPago = parseDate(row["Fecha de pago"] || row["fecha_pago"] || row["Fecha"] || row["fecha"])
+        // Acepta tanto "symbol" como "Ticker"
+        const symbol = (row["symbol"] || row["Ticker"] || row["ticker"] || "").toString().trim().toUpperCase()
+        const fechaPago = parseDate(row["fecha_pago"] || row["Fecha de pago"] || row["Fecha"])
         return {
-          symbol:         ticker,
+          symbol,
           fecha_pago:     fechaPago,
-          interes:        row["Interés"] != null && !isNaN(Number(row["Interés"]))           ? Number(row["Interés"])           : null,
-          amortizacion:   row["Amortización"] != null && !isNaN(Number(row["Amortización"])) ? Number(row["Amortización"])      : null,
-          total:          row["Total"] != null && !isNaN(Number(row["Total"]))               ? Number(row["Total"])             : null,
-          moneda_pago:    row["Mon. pago"] || row["moneda_pago"] || null,
-          dias:           row["Días"] != null && !isNaN(Number(row["Días"]))                 ? Number(row["Días"])              : null,
-          cupon:          row["Cupón"] != null && !isNaN(Number(row["Cupón"]))               ? Number(row["Cupón"])             : null,
-          valor_residual: row["Valor residual"] != null && !isNaN(Number(row["Valor residual"])) ? Number(row["Valor residual"]) : null,
-          tipo:           row["tipo"] || row["Tipo"] || null,
-          _valid:         !!ticker && !!fechaPago,
+          interes:        row["interes"] != null && !isNaN(Number(row["interes"]))           ? Number(row["interes"])           : null,
+          amortizacion:   row["amortizacion"] != null && !isNaN(Number(row["amortizacion"])) ? Number(row["amortizacion"])      : null,
+          total:          row["total"] != null && !isNaN(Number(row["total"]))               ? Number(row["total"])             : null,
+          moneda_pago:    row["moneda_pago"] || row["Mon. pago"] || null,
+          dias:           row["dias"] != null && !isNaN(Number(row["dias"]))                 ? Number(row["dias"])              : null,
+          cupon:          row["cupon"] != null && !isNaN(Number(row["cupon"]))               ? Number(row["cupon"])             : null,
+          valor_residual: row["valor_residual"] != null && !isNaN(Number(row["valor_residual"])) ? Number(row["valor_residual"]) : null,
+          tipo:           row["tipo"] || null,
+          _valid:         !!symbol && !!fechaPago,
         }
       })
 
@@ -126,7 +127,7 @@ export function InstrumentFlowsUploader({ onUploadComplete }: Props) {
           Cargar Flujos de Pagos
         </CardTitle>
         <CardDescription>
-          Columnas requeridas: Ticker, Fecha de pago, Total — Opcionales: Interés, Amortización, Mon. pago, Días, Cupón, Valor residual, tipo
+          Headers exactos: symbol, fecha_pago, interes, amortizacion, total, moneda_pago, dias, cupon, valor_residual, tipo
         </CardDescription>
       </CardHeader>
       <CardContent>
