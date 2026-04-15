@@ -79,38 +79,20 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 p-4">
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="max-w-4xl mx-auto space-y-6">
 
-        {/* Header */}
         <div className="bg-white rounded-lg shadow-sm border p-6 flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-slate-900 mb-1">Panel de Administración</h1>
-            <p className="text-slate-600">Carga de instrumentos y flujos desde Excel</p>
+            <p className="text-slate-600">Carga de datos desde Excel</p>
           </div>
           <Button onClick={handleLogout} variant="outline" className="flex items-center gap-2 bg-transparent">
             <LogOut className="h-4 w-4" />Cerrar Sesión
           </Button>
         </div>
 
-        {/* Flows */}
-        <div>
-          <h2 className="text-xl font-semibold text-slate-800 mb-4">Flujos de pagos → instrument_flows</h2>
-          <div className="grid gap-6 md:grid-cols-3">
-            <InstrumentFlowsUploader instrumentType="ON"  onUploadComplete={handleUploadComplete} />
-            <InstrumentFlowsUploader instrumentType="HD"  onUploadComplete={handleUploadComplete} />
-            <InstrumentFlowsUploader instrumentType="ARS" onUploadComplete={handleUploadComplete} />
-          </div>
-        </div>
-
-        {/* Instruments */}
-        <div>
-          <h2 className="text-xl font-semibold text-slate-800 mb-4">Detalles de instrumentos → instruments</h2>
-          <div className="grid gap-6 md:grid-cols-3">
-            <InstrumentsUploader instrumentType="ON"  onUploadComplete={handleUploadComplete} />
-            <InstrumentsUploader instrumentType="HD"  onUploadComplete={handleUploadComplete} />
-            <InstrumentsUploader instrumentType="ARS" onUploadComplete={handleUploadComplete} />
-          </div>
-        </div>
+        <InstrumentFlowsUploader onUploadComplete={handleUploadComplete} />
+        <InstrumentsUploader onUploadComplete={handleUploadComplete} />
 
       </div>
     </div>
