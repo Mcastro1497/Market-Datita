@@ -11,7 +11,6 @@ import { createClient } from "@/lib/supabase/client"
 
 interface Props {
   onUploadComplete: () => void
-  instrumentType: "ON" | "HD" | "ARS"
 }
 
 function parseDate(value: any): string | null {
@@ -37,17 +36,11 @@ function parseCalleable(value: any): boolean {
   return ["sí","si","yes","true","verdadero","1"].includes(s) || value === true
 }
 
-export function InstrumentsUploader({ onUploadComplete, instrumentType }: Props) {
+export function InstrumentsUploader({ onUploadComplete }: Props) {
   const [uploading, setUploading] = useState(false)
   const [progress, setProgress] = useState(0)
   const [message, setMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
   const supabase = createClient()
-
-  const labels = {
-    ON:  { title: "Instrumentos ONs",           desc: "Ticker, Fecha Vencimiento, Legislación, Jurisdicción, Lámina Mín., Calleable, Monto Residual, Emisor, Cupón", color: "text-blue-600"   },
-    HD:  { title: "Instrumentos Soberanos HD",  desc: "Ticker, Fecha Vencimiento, Legislación, Jurisdicción, Lámina Mín., Calleable, Monto Residual, Moneda, Emisor", color: "text-green-600"  },
-    ARS: { title: "Instrumentos Soberanos ARS", desc: "Ticker, Fecha Vencimiento, Tipo (CER/Fija), CER Emisión, Lámina Mín., Monto Residual, Emisor",                 color: "text-orange-600" },
-  }
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     const file = acceptedFiles[0]
@@ -68,9 +61,10 @@ export function InstrumentsUploader({ onUploadComplete, instrumentType }: Props)
 
       const processed = jsonData.map((row: any) => {
         const ticker = (row["Ticker"] || row["ticker"] || "").toString().trim().toUpperCase()
+        const instrType = (row["instrument_type"] || row["Tipo Instrumento"] || "").toString().trim().toUpperCase()
         return {
           symbol:            ticker,
-          instrument_type:   instrumentType,
+          instrument_type:   ["ON","HD","ARS"].includes(instrType) ? instrType : "ON",
           segment:           "24hs",
           is_active:         true,
           emisor:            row["Emisor"] || row["emisor"] || null,
@@ -80,7 +74,7 @@ export function InstrumentsUploader({ onUploadComplete, instrumentType }: Props)
           lamina_minima:     !isNaN(Number(row["lamina_minima"] || row["Lámina Mínima"])) ? Number(row["lamina_minima"] || row["Lámina Mínima"]) : null,
           monto_residual:    !isNaN(Number(row["monto_residual"] || row["Monto Residual"])) ? Number(row["monto_residual"] || row["Monto Residual"]) : null,
           calleable:         parseCalleable(row["calleable"] || row["Calleable"]),
-          moneda:            row["moneda"] || row["Moneda"] || (instrumentType === "ARS" ? "ARS" : "USD"),
+          moneda:            row["moneda"] || row["Moneda"] || null,
           tipo:              row["tipo"] || row["Tipo"] || null,
           cer_emision:       !isNaN(Number(row["cer_emision"] || row["CER Emisión"])) ? Number(row["cer_emision"] || row["CER Emisión"]) : null,
           cupon:             !isNaN(Number(row["Cupón"] || row["cupon"])) ? Number(row["Cupón"] || row["cupon"]) : null,
@@ -90,10 +84,9 @@ export function InstrumentsUploader({ onUploadComplete, instrumentType }: Props)
 
       const valid = processed.filter(r => r._valid)
       const invalid = processed.length - valid.length
+      const toUpsert = valid.map(({ _valid, ...rest }) => rest)
 
       setProgress(70)
-
-      const toUpsert = valid.map(({ _valid, ...rest }) => rest)
 
       if (toUpsert.length > 0) {
         const { error } = await supabase.from("instruments").upsert(toUpsert)
@@ -101,7 +94,7 @@ export function InstrumentsUploader({ onUploadComplete, instrumentType }: Props)
       }
 
       setProgress(100)
-      let msg = `${toUpsert.length} instrumentos cargados/actualizados correctamente.`
+      let msg = `${toUpsert.length} instrumentos cargados/actualizados.`
       if (invalid > 0) msg += ` ${invalid} filas omitidas por ticker faltante.`
       setMessage({ type: "success", text: msg })
       onUploadComplete()
@@ -111,7 +104,7 @@ export function InstrumentsUploader({ onUploadComplete, instrumentType }: Props)
       setUploading(false)
       setTimeout(() => setProgress(0), 2000)
     }
-  }, [supabase, onUploadComplete, instrumentType])
+  }, [supabase, onUploadComplete])
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -123,31 +116,31 @@ export function InstrumentsUploader({ onUploadComplete, instrumentType }: Props)
     disabled: uploading,
   })
 
-  const { title, desc, color } = labels[instrumentType]
-
   return (
     <Card className="w-full">
       <CardHeader>
-        <CardTitle className={`flex items-center gap-2 ${color}`}>
+        <CardTitle className="flex items-center gap-2 text-green-600">
           <FileSpreadsheet className="h-5 w-5" />
-          {title}
+          Cargar Instrumentos
         </CardTitle>
-        <CardDescription>{desc}</CardDescription>
+        <CardDescription>
+          Columnas requeridas: Ticker, instrument_type (ON/HD/ARS) — Opcionales: Emisor, Legislación, Jurisdicción de Pago, Fecha Vencimiento, Lámina Mínima, Monto Residual, Calleable, Moneda, tipo, cer_emision, Cupón
+        </CardDescription>
       </CardHeader>
       <CardContent>
         <div
           {...getRootProps()}
           className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
-            isDragActive ? "border-blue-500 bg-blue-50" : "border-gray-300 hover:border-gray-400"
+            isDragActive ? "border-green-500 bg-green-50" : "border-gray-300 hover:border-gray-400"
           } ${uploading ? "opacity-50 cursor-not-allowed" : ""}`}
         >
           <input {...getInputProps()} />
           <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
           {isDragActive ? (
-            <p className="text-blue-600">Soltá el archivo aquí...</p>
+            <p className="text-green-600">Soltá el archivo aquí...</p>
           ) : (
             <div>
-              <p className="text-gray-600 mb-2">Arrastrá tu archivo Excel aquí, o hacé clic para seleccionar</p>
+              <p className="text-gray-600 mb-2">Arrastrá tu Excel aquí, o hacé clic para seleccionar</p>
               <p className="text-sm text-gray-500">Formatos: .xlsx, .xls</p>
             </div>
           )}
@@ -156,7 +149,7 @@ export function InstrumentsUploader({ onUploadComplete, instrumentType }: Props)
         {uploading && (
           <div className="mt-4">
             <Progress value={progress} className="w-full" />
-            <p className="text-sm text-gray-600 mt-2">Procesando archivo...</p>
+            <p className="text-sm text-gray-600 mt-2">Procesando...</p>
           </div>
         )}
 
