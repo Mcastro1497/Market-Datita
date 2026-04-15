@@ -60,24 +60,25 @@ export function InstrumentsUploader({ onUploadComplete }: Props) {
       setProgress(50)
 
       const processed = jsonData.map((row: any) => {
-        const ticker = (row["Ticker"] || row["ticker"] || "").toString().trim().toUpperCase()
-        const instrType = (row["instrument_type"] || row["Tipo Instrumento"] || "").toString().trim().toUpperCase()
+        // Acepta tanto "symbol" como "Ticker"
+        const ticker = (row["symbol"] || row["Ticker"] || row["ticker"] || "").toString().trim().toUpperCase()
+        const instrType = (row["instrument_type"] || "").toString().trim().toUpperCase()
         return {
           symbol:            ticker,
           instrument_type:   ["ON","HD","ARS"].includes(instrType) ? instrType : "ON",
-          segment:           "24hs",
-          is_active:         true,
-          emisor:            row["Emisor"] || row["emisor"] || null,
-          legislacion:       row["legislacion"] || row["Legislación"] || null,
-          jurisdiccion_pago: row["jurisdiccion_pago"] || row["Jurisdicción de Pago"] || null,
-          fecha_vencimiento: parseDate(row["fecha_vencimiento"] || row["Fecha de Vencimiento"] || row["Fecha Vencimiento"]),
-          lamina_minima:     !isNaN(Number(row["lamina_minima"] || row["Lámina Mínima"])) ? Number(row["lamina_minima"] || row["Lámina Mínima"]) : null,
-          monto_residual:    !isNaN(Number(row["monto_residual"] || row["Monto Residual"])) ? Number(row["monto_residual"] || row["Monto Residual"]) : null,
-          calleable:         parseCalleable(row["calleable"] || row["Calleable"]),
-          moneda:            row["moneda"] || row["Moneda"] || null,
-          tipo:              row["tipo"] || row["Tipo"] || null,
-          cer_emision:       !isNaN(Number(row["cer_emision"] || row["CER Emisión"])) ? Number(row["cer_emision"] || row["CER Emisión"]) : null,
-          cupon:             !isNaN(Number(row["Cupón"] || row["cupon"])) ? Number(row["Cupón"] || row["cupon"]) : null,
+          segment:           row["segment"] || "24hs",
+          is_active:         row["is_active"] !== undefined ? Boolean(row["is_active"]) : true,
+          emisor:            row["emisor"] || null,
+          legislacion:       row["legislacion"] || null,
+          jurisdiccion_pago: row["jurisdiccion_pago"] || null,
+          fecha_vencimiento: parseDate(row["fecha_vencimiento"]),
+          lamina_minima:     row["lamina_minima"] != null && !isNaN(Number(row["lamina_minima"])) ? Number(row["lamina_minima"]) : null,
+          monto_residual:    row["monto_residual"] != null && !isNaN(Number(row["monto_residual"])) ? Number(row["monto_residual"]) : null,
+          calleable:         parseCalleable(row["calleable"]),
+          moneda:            row["moneda"] || null,
+          tipo:              row["tipo"] || null,
+          cer_emision:       row["cer_emision"] != null && !isNaN(Number(row["cer_emision"])) ? Number(row["cer_emision"]) : null,
+          cupon:             row["cupon"] != null && !isNaN(Number(row["cupon"])) ? Number(row["cupon"]) : null,
           _valid:            !!ticker,
         }
       })
@@ -95,7 +96,7 @@ export function InstrumentsUploader({ onUploadComplete }: Props) {
 
       setProgress(100)
       let msg = `${toUpsert.length} instrumentos cargados/actualizados.`
-      if (invalid > 0) msg += ` ${invalid} filas omitidas por ticker faltante.`
+      if (invalid > 0) msg += ` ${invalid} filas omitidas por symbol/ticker faltante.`
       setMessage({ type: "success", text: msg })
       onUploadComplete()
     } catch (error) {
@@ -124,7 +125,7 @@ export function InstrumentsUploader({ onUploadComplete }: Props) {
           Cargar Instrumentos
         </CardTitle>
         <CardDescription>
-          Columnas requeridas: Ticker, instrument_type (ON/HD/ARS) — Opcionales: Emisor, Legislación, Jurisdicción de Pago, Fecha Vencimiento, Lámina Mínima, Monto Residual, Calleable, Moneda, tipo, cer_emision, Cupón
+          Headers exactos de la tabla: symbol, instrument_type, segment, is_active, emisor, legislacion, jurisdiccion_pago, fecha_vencimiento, lamina_minima, monto_residual, calleable, moneda, tipo, cer_emision, cupon
         </CardDescription>
       </CardHeader>
       <CardContent>
