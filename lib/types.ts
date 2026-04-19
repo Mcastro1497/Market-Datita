@@ -2,7 +2,7 @@
 
 export interface Instrument {
   symbol:            string
-  instrument_type:   "ON" | "HD" | "ARS"
+  instrument_type:   "ON" | "HD" | "ARS" | "DLK" | "FX"
   segment:           string
   is_active:         boolean
   emisor:            string | null
@@ -116,6 +116,50 @@ export type SoberanoWithDetails = {
     change_pct:    number | null
     change:        number | null
     price_usd:     number | null
+    ytm:           number | null
+    duration_y:    number | null
+    tna:           number | null
+    bid:           number | null
+    ask:           number | null
+    closing_price: number | null
+    ts:            string | null
+  } | null
+}
+
+// ── DLK: igual a Soberano pero con `price_ars` separado de `price_usd` ──
+// price_ars: lo que cotiza en pesos (= prices.last)
+// price_usd: precio_ars / fx_oficial (calculado en runtime, en USD eq.)
+export type DlkWithDetails = {
+  id:            string
+  ticker:        string
+  emisor:        string
+  fecha_pago:    string
+  interes:       number | null
+  amortizacion:  number | null
+  total:         number | null
+  moneda_pago:   string | null
+  dias:          number | null
+  cupon:         number | null
+  valor_residual:number | null
+  details?: {
+    ticker:            string
+    fecha_vencimiento: string | null
+    legislacion:       string | null
+    jurisdiccion_pago: string | null
+    lamina_minima:     number | null
+    calleable:         boolean | null
+    monto_residual:    number | null
+    moneda:            string | null
+    tipo:              string | null
+    cer_emision:       number | null
+  } | null
+  lastPrice?: {
+    symbol:        string
+    last:          number | null
+    change_pct:    number | null
+    change:        number | null
+    price_ars:     number | null    // = last (cotiza en ARS)
+    price_usd:     number | null    // = last / fx_oficial (calculado)
     ytm:           number | null
     duration_y:    number | null
     tna:           number | null
