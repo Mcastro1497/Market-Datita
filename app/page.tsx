@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { TrendingUp, DollarSign, BarChart3, Globe, PiggyBank, LogIn } from "lucide-react"
+import { TrendingUp, DollarSign, BarChart3, Globe, PiggyBank, LogIn, Link2 } from "lucide-react"
 import Link from "next/link"
 import { useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
@@ -14,7 +14,6 @@ export default function HomePage() {
   const supabase = createClient()
 
   useEffect(() => {
-    // Get initial user
     const getUser = async () => {
       const {
         data: { user },
@@ -25,7 +24,6 @@ export default function HomePage() {
 
     getUser()
 
-    // Listen for auth changes
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
@@ -79,7 +77,7 @@ export default function HomePage() {
         </div>
 
         {/* Dashboard Options */}
-        <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8 max-w-6xl mx-auto">
           {/* ONs Dashboard Card */}
           <Link href="/ons" className="group">
             <Card className="h-full transition-all duration-300 hover:shadow-xl hover:scale-105 border-2 hover:border-blue-200 cursor-pointer">
@@ -146,6 +144,7 @@ export default function HomePage() {
             </Card>
           </Link>
 
+          {/* Soberanos ARS Dashboard Card */}
           <Link href="/soberanos-ars" className="group">
             <Card className="h-full transition-all duration-300 hover:shadow-xl hover:scale-105 border-2 hover:border-orange-200 cursor-pointer">
               <CardHeader className="text-center pb-4">
@@ -174,6 +173,40 @@ export default function HomePage() {
                 </div>
                 <Button className="w-full bg-orange-600 hover:bg-orange-700 text-white">
                   Acceder a Dashboard de Soberanos ARS
+                </Button>
+              </CardContent>
+            </Card>
+          </Link>
+
+          {/* Dólar Linked Dashboard Card */}
+          <Link href="/dlk" className="group">
+            <Card className="h-full transition-all duration-300 hover:shadow-xl hover:scale-105 border-2 hover:border-purple-200 cursor-pointer">
+              <CardHeader className="text-center pb-4">
+                <div className="mx-auto mb-4 p-4 bg-purple-100 rounded-full w-fit group-hover:bg-purple-200 transition-colors">
+                  <Link2 className="h-8 w-8 text-purple-600" />
+                </div>
+                <CardTitle className="text-2xl text-slate-900 mb-2">Dólar Linked</CardTitle>
+                <CardDescription className="text-base">
+                  Bonos en pesos ajustados por tipo de cambio oficial (A3500)
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-0">
+                <div className="space-y-3 mb-6">
+                  <div className="flex items-center gap-3 text-slate-600">
+                    <Link2 className="h-4 w-4 text-purple-500" />
+                    <span className="text-sm">Cotiza en ARS, valuado en USD</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-slate-600">
+                    <BarChart3 className="h-4 w-4 text-purple-500" />
+                    <span className="text-sm">TIR USD calculada con FX MAE</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-slate-600">
+                    <DollarSign className="h-4 w-4 text-purple-500" />
+                    <span className="text-sm">Cobertura cambiaria implícita</span>
+                  </div>
+                </div>
+                <Button className="w-full bg-purple-600 hover:bg-purple-700 text-white">
+                  Acceder a Dashboard de DLK
                 </Button>
               </CardContent>
             </Card>
