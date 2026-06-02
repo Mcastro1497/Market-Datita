@@ -157,15 +157,20 @@ export default function SoberanosArsDashboard() {
 
         {data && (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid w-full grid-cols-2 mb-6">
+            <TabsList className="grid w-full grid-cols-3 mb-6">
               <TabsTrigger value="CER">CER ({data.flowsWithDetails.filter((f) => f.details?.tipo === "CER").length})</TabsTrigger>
               <TabsTrigger value="Fija">FIJA ({data.flowsWithDetails.filter((f) => f.details?.tipo === "Fija").length})</TabsTrigger>
+              <TabsTrigger value="TAMAR">TAMAR ({data.flowsWithDetails.filter((f) => f.details?.tipo === "TAMAR").length})</TabsTrigger>
             </TabsList>
             <TabsContent value="CER" className="space-y-6">
               <SoberanosArsDetailsFilters monedas={data.monedas} emisores={data.emisores} onFiltersChange={handleDetailsFiltersChange} />
               <SoberanosArsDetailsTable flows={filteredDetailsData} activeTab={activeTab} />
             </TabsContent>
             <TabsContent value="Fija" className="space-y-6">
+              <SoberanosArsDetailsFilters monedas={data.monedas} emisores={data.emisores} onFiltersChange={handleDetailsFiltersChange} />
+              <SoberanosArsDetailsTable flows={filteredDetailsData} activeTab={activeTab} />
+            </TabsContent>
+            <TabsContent value="TAMAR" className="space-y-6">
               <SoberanosArsDetailsFilters monedas={data.monedas} emisores={data.emisores} onFiltersChange={handleDetailsFiltersChange} />
               <SoberanosArsDetailsTable flows={filteredDetailsData} activeTab={activeTab} />
             </TabsContent>
