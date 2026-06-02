@@ -139,6 +139,11 @@ export function SoberanosArsTamarTable({ flows, activeTab }: SoberanosArsTamarTa
     return `${(value * 100).toFixed(2)}%`
   }
 
+  const formatTem = (value: number | null | undefined) => {
+    if (value == null) return "—"
+    return `${(value * 100).toFixed(3)}%`
+  }
+
   const formatDuration = (value: number | null | undefined) => {
     if (value == null) return "—"
     return `${value.toFixed(2)} años`
@@ -223,6 +228,31 @@ export function SoberanosArsTamarTable({ flows, activeTab }: SoberanosArsTamarTa
                 </Button>
               </TableHead>
               <TableHead className="text-center">
+                <Button variant="ghost" onClick={() => handleSort("lastPrice.tamar_obs")} className="h-auto p-0 font-semibold">
+                  TAMAR obs. <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+              </TableHead>
+              <TableHead className="text-center">
+                <Button variant="ghost" onClick={() => handleSort("lastPrice.tamar_proy")} className="h-auto p-0 font-semibold">
+                  TAMAR proy. <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+              </TableHead>
+              <TableHead className="text-center">
+                <Button variant="ghost" onClick={() => handleSort("lastPrice.tem_obs")} className="h-auto p-0 font-semibold">
+                  TEM obs. <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+              </TableHead>
+              <TableHead className="text-center">
+                <Button variant="ghost" onClick={() => handleSort("lastPrice.tem_proy")} className="h-auto p-0 font-semibold">
+                  TEM proy. <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+              </TableHead>
+              <TableHead className="text-center">
+                <Button variant="ghost" onClick={() => handleSort("lastPrice.tem_ponderada")} className="h-auto p-0 font-semibold">
+                  TEM pond. <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+              </TableHead>
+              <TableHead className="text-center">
                 <Button
                   variant="ghost"
                   onClick={() => handleSort("lastPrice.ytm")}
@@ -299,6 +329,11 @@ export function SoberanosArsTamarTable({ flows, activeTab }: SoberanosArsTamarTa
                     {formatPercentage(flow.lastPrice?.change)}
                   </span>
                 </TableCell>
+                <TableCell className="text-center">{formatPercentage(flow.lastPrice?.tamar_obs)}</TableCell>
+                <TableCell className="text-center">{formatPercentage(flow.lastPrice?.tamar_proy)}</TableCell>
+                <TableCell className="text-center">{formatTem(flow.lastPrice?.tem_obs)}</TableCell>
+                <TableCell className="text-center">{formatTem(flow.lastPrice?.tem_proy)}</TableCell>
+                <TableCell className="text-center">{formatTem(flow.lastPrice?.tem_ponderada)}</TableCell>
                 <TableCell className="text-center">{formatPercentage(flow.lastPrice?.ytm)}</TableCell>
                 <TableCell className="text-center">{formatDuration(flow.lastPrice?.duration_y)}</TableCell>
                 <TableCell className="text-center">{formatDate(flow.details?.fecha_vencimiento)}</TableCell>
