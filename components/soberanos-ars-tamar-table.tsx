@@ -210,21 +210,28 @@ export function SoberanosArsTamarTable({ flows, activeTab }: SoberanosArsTamarTa
                 </Button>
               </TableHead>
               <TableHead className="text-center">
-                <Button
-                  variant="ghost"
-                  onClick={() => handleSort("lastPrice.last")}
-                  className="h-auto p-0 font-semibold"
-                >
+                <Button variant="ghost" onClick={() => handleSort("lastPrice.last")} className="h-auto p-0 font-semibold">
                   Precio ARS <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
               </TableHead>
               <TableHead className="text-center">
-                <Button
-                  variant="ghost"
-                  onClick={() => handleSort("lastPrice.change")}
-                  className="h-auto p-0 font-semibold"
-                >
+                <Button variant="ghost" onClick={() => handleSort("lastPrice.change")} className="h-auto p-0 font-semibold">
                   Var % <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+              </TableHead>
+              <TableHead className="text-center">
+                <Button variant="ghost" onClick={() => handleSort("lastPrice.ytm")} className="h-auto p-0 font-semibold">
+                  TIR <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+              </TableHead>
+              <TableHead className="text-center">
+                <Button variant="ghost" onClick={() => handleSort("lastPrice.duration_y")} className="h-auto p-0 font-semibold">
+                  Duración <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+              </TableHead>
+              <TableHead className="text-center">
+                <Button variant="ghost" onClick={() => handleSort("details.fecha_vencimiento")} className="h-auto p-0 font-semibold">
+                  Vencimiento <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
               </TableHead>
               <TableHead className="text-center">
@@ -252,60 +259,6 @@ export function SoberanosArsTamarTable({ flows, activeTab }: SoberanosArsTamarTa
                   TEM pond. <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
               </TableHead>
-              <TableHead className="text-center">
-                <Button
-                  variant="ghost"
-                  onClick={() => handleSort("lastPrice.ytm")}
-                  className="h-auto p-0 font-semibold"
-                >
-                  TIR <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-              </TableHead>
-              <TableHead className="text-center">
-                <Button
-                  variant="ghost"
-                  onClick={() => handleSort("lastPrice.duration_y")}
-                  className="h-auto p-0 font-semibold"
-                >
-                  Duración <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-              </TableHead>
-              <TableHead className="text-center">
-                <Button
-                  variant="ghost"
-                  onClick={() => handleSort("details.fecha_vencimiento")}
-                  className="h-auto p-0 font-semibold"
-                >
-                  Vencimiento <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-              </TableHead>
-              <TableHead className="text-center">
-                <Button
-                  variant="ghost"
-                  onClick={() => handleSort("details.moneda")}
-                  className="h-auto p-0 font-semibold"
-                >
-                  Moneda <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-              </TableHead>
-              <TableHead className="text-center">
-                <Button
-                  variant="ghost"
-                  onClick={() => handleSort("details.lamina_minima")}
-                  className="h-auto p-0 font-semibold"
-                >
-                  Lámina Mínima <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-              </TableHead>
-              <TableHead className="text-center">
-                <Button
-                  variant="ghost"
-                  onClick={() => handleSort("details.monto_residual")}
-                  className="h-auto p-0 font-semibold"
-                >
-                  Monto Residual <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-              </TableHead>
             </TableRow>
           </TableHeader>
 
@@ -329,17 +282,14 @@ export function SoberanosArsTamarTable({ flows, activeTab }: SoberanosArsTamarTa
                     {formatPercentage(flow.lastPrice?.change)}
                   </span>
                 </TableCell>
+                <TableCell className="text-center">{formatPercentage(flow.lastPrice?.ytm)}</TableCell>
+                <TableCell className="text-center">{formatDuration(flow.lastPrice?.duration_y)}</TableCell>
+                <TableCell className="text-center">{formatDate(flow.details?.fecha_vencimiento)}</TableCell>
                 <TableCell className="text-center">{formatPercentage(flow.lastPrice?.tamar_obs)}</TableCell>
                 <TableCell className="text-center">{formatPercentage(flow.lastPrice?.tamar_proy)}</TableCell>
                 <TableCell className="text-center">{formatTem(flow.lastPrice?.tem_obs)}</TableCell>
                 <TableCell className="text-center">{formatTem(flow.lastPrice?.tem_proy)}</TableCell>
                 <TableCell className="text-center">{formatTem(flow.lastPrice?.tem_ponderada)}</TableCell>
-                <TableCell className="text-center">{formatPercentage(flow.lastPrice?.ytm)}</TableCell>
-                <TableCell className="text-center">{formatDuration(flow.lastPrice?.duration_y)}</TableCell>
-                <TableCell className="text-center">{formatDate(flow.details?.fecha_vencimiento)}</TableCell>
-                <TableCell className="text-center">{flow.details?.moneda ?? "—"}</TableCell>
-                <TableCell className="text-center">{formatAmount(flow.details?.lamina_minima)}</TableCell>
-                <TableCell className="text-center">{formatAmount(flow.details?.monto_residual)}</TableCell>
               </TableRow>
             ))}
           </TableBody>
