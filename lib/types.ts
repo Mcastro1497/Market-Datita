@@ -119,6 +119,15 @@ export type SoberanoWithDetails = {
     ytm:           number | null
     duration_y:    number | null
     tna:           number | null
+    tamar_obs:     number | null
+    tamar_proy:    number | null
+    tem_obs:       number | null
+    tem_proy:      number | null
+    tem_ponderada: number | null
+    tem_margen:    number | null
+    tem_total:     number | null
+    vpv:           number | null
+    paridad:       number | null
     bid:           number | null
     ask:           number | null
     closing_price: number | null
