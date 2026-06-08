@@ -35,7 +35,7 @@ const fetcher = async () => {
 
   const [allFlowsRaw, instrumentsResult, pricesResult] = await Promise.all([
     fetchAllFlows(),
-    supabase.from("instruments_v2").select("*").eq("instrument_type", "ARS").eq("is_active", true),
+    supabase.from("instruments_v2").select("*").in("instrument_type", ["CER", "FIJA", "TAMAR"]).eq("is_active", true),
     supabase.from("prices").select("*"),
   ])
 
@@ -68,6 +68,7 @@ const fetcher = async () => {
       emisor: instr?.emisor || "Tesoro Argentino",
       details: instr ? {
         ticker:            instr.symbol,
+        instrument_type:   instr.instrument_type,
         vencimiento:       instr.vencimiento,
         legislacion:       instr.legislacion,
         jurisdiccion_pago: instr.jurisdiccion_pago,
@@ -106,13 +107,13 @@ export default function SoberanosArsDashboard() {
 
   useEffect(() => {
     if (data?.flowsWithDetails) {
-      setFilteredDetailsData(data.flowsWithDetails.filter((f) => f.details?.tipo_cupon === activeTab))
+      setFilteredDetailsData(data.flowsWithDetails.filter((f) => f.details?.instrument_type === activeTab))
     }
   }, [data, activeTab])
 
   const handleDetailsFiltersChange = (filters: { moneda?: string; emisores?: string[]; fechaVencimientoHasta?: Date }) => {
     if (!data?.flowsWithDetails) return
-    let filtered = data.flowsWithDetails.filter((f) => f.details?.tipo_cupon === activeTab)
+    let filtered = data.flowsWithDetails.filter((f) => f.details?.instrument_type === activeTab)
     if (filters.moneda) filtered = filtered.filter((f) => f.details?.moneda_denom === filters.moneda)
     if (filters.emisores?.length) filtered = filtered.filter((f) => filters.emisores!.includes(f.emisor))
     if (filters.fechaVencimientoHasta) {
@@ -159,15 +160,15 @@ export default function SoberanosArsDashboard() {
         {data && (
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="grid w-full grid-cols-3 mb-6">
-              <TabsTrigger value="CER">CER ({data.flowsWithDetails.filter((f) => f.details?.tipo_cupon === "CER").length})</TabsTrigger>
-              <TabsTrigger value="Fija">FIJA ({data.flowsWithDetails.filter((f) => f.details?.tipo_cupon === "Fija").length})</TabsTrigger>
-              <TabsTrigger value="TAMAR">TAMAR ({data.flowsWithDetails.filter((f) => f.details?.tipo_cupon === "TAMAR").length})</TabsTrigger>
+              <TabsTrigger value="CER">CER ({data.flowsWithDetails.filter((f) => f.details?.instrument_type === "CER").length})</TabsTrigger>
+              <TabsTrigger value="FIJA">FIJA ({data.flowsWithDetails.filter((f) => f.details?.instrument_type === "FIJA").length})</TabsTrigger>
+              <TabsTrigger value="TAMAR">TAMAR ({data.flowsWithDetails.filter((f) => f.details?.instrument_type === "TAMAR").length})</TabsTrigger>
             </TabsList>
             <TabsContent value="CER" className="space-y-6">
               <SoberanosArsDetailsFilters monedas={data.monedas} emisores={data.emisores} onFiltersChange={handleDetailsFiltersChange} />
               <SoberanosArsDetailsTable flows={filteredDetailsData} activeTab={activeTab} />
             </TabsContent>
-            <TabsContent value="Fija" className="space-y-6">
+            <TabsContent value="FIJA" className="space-y-6">
               <SoberanosArsDetailsFilters monedas={data.monedas} emisores={data.emisores} onFiltersChange={handleDetailsFiltersChange} />
               <SoberanosArsDetailsTable flows={filteredDetailsData} activeTab={activeTab} />
             </TabsContent>

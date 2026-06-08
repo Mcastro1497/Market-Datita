@@ -117,6 +117,7 @@ export type SoberanoWithDetails = {
   valor_residual:number | null
   details?: {
     ticker:            string
+    instrument_type:   string | null
     vencimiento:       string | null
     legislacion:       string | null
     jurisdiccion_pago: string | null
@@ -170,6 +171,7 @@ export type DlkWithDetails = {
   valor_residual:number | null
   details?: {
     ticker:            string
+    instrument_type:   string | null
     vencimiento:       string | null
     legislacion:       string | null
     jurisdiccion_pago: string | null

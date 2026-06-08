@@ -26,7 +26,7 @@ export function SoberanosArsDetailsTable({ flows, activeTab }: SoberanosArsDetai
   }, [flows])
 
   const uniqueTipos = useMemo(() => {
-    const tipos = [...new Set(flows.map((flow) => flow.details?.tipo_cupon).filter(Boolean) as string[])]
+    const tipos = [...new Set(flows.map((flow) => flow.details?.instrument_type).filter(Boolean) as string[])]
     return tipos.sort()
   }, [flows])
 
@@ -56,7 +56,7 @@ export function SoberanosArsDetailsTable({ flows, activeTab }: SoberanosArsDetai
         !emisorFilter || emisorFilter === "all" || flow.emisor === emisorFilter
 
       const matchesTipo =
-        !tipoFilter || tipoFilter === "all" || flow.details?.tipo_cupon === tipoFilter
+        !tipoFilter || tipoFilter === "all" || flow.details?.instrument_type === tipoFilter
 
       return matchesSearch && matchesEmisor && matchesTipo
     })
@@ -218,7 +218,7 @@ export function SoberanosArsDetailsTable({ flows, activeTab }: SoberanosArsDetai
                 </Button>
               </TableHead>
               <TableHead className="text-center">
-                <Button variant="ghost" onClick={() => handleSort("details.tipo_cupon")} className="h-auto p-0 font-semibold">
+                <Button variant="ghost" onClick={() => handleSort("details.instrument_type")} className="h-auto p-0 font-semibold">
                   Tipo <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
               </TableHead>
@@ -311,7 +311,7 @@ export function SoberanosArsDetailsTable({ flows, activeTab }: SoberanosArsDetai
               <TableRow key={flow.id}>
                 <TableCell className="text-center">{flow.emisor}</TableCell>
                 <TableCell className="text-center font-medium">{flow.ticker}</TableCell>
-                <TableCell className="text-center">{flow.details?.tipo_cupon ?? "—"}</TableCell>
+                <TableCell className="text-center">{flow.details?.instrument_type ?? "—"}</TableCell>
                 <TableCell className="text-center">{formatCurrency(flow.lastPrice?.last)}</TableCell>
 
                 <TableCell className="text-center">

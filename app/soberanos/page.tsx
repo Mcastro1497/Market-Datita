@@ -47,16 +47,6 @@ const fetcher = async () => {
   const hdSymbols = new Set(instrumentsData.map((i: any) => i.symbol))
   const flowsData = allFlowsRaw.filter((f: any) => hdSymbols.has(f.symbol))
 
-  // 🔎 DIAGNÓSTICO TEMPORAL — borrar después
-  console.log("🔎 [soberanos] instruments_v2 count:", instrumentsData.length)
-  console.log("🔎 [soberanos] primer instrumento (keys):", instrumentsData[0] ? Object.keys(instrumentsData[0]) : "—")
-  console.log("🔎 [soberanos] primer instrumento (raw):", instrumentsData[0])
-  console.log("🔎 [soberanos] symbols de v2:", instrumentsData.map((i: any) => i.symbol))
-  console.log("🔎 [soberanos] flows totales fetcheados:", allFlowsRaw.length)
-  console.log("🔎 [soberanos] symbols de flows (primeros 20):", [...new Set(allFlowsRaw.map((f: any) => f.symbol))].slice(0, 20))
-  console.log("🔎 [soberanos] flows que matchean símbolos v2:", flowsData.length)
-  // 🔎 FIN DIAGNÓSTICO
-
   const instrumentsMap = new Map(instrumentsData.map((i: any) => [i.symbol, i]))
   const pricesMap = new Map(pricesData.map((p: any) => [p.symbol, p]))
 
