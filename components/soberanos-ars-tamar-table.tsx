@@ -26,7 +26,7 @@ export function SoberanosArsTamarTable({ flows, activeTab }: SoberanosArsTamarTa
   }, [flows])
 
   const uniqueTipos = useMemo(() => {
-    const tipos = [...new Set(flows.map((flow) => flow.details?.tipo).filter(Boolean) as string[])]
+    const tipos = [...new Set(flows.map((flow) => flow.details?.tipo_cupon).filter(Boolean) as string[])]
     return tipos.sort()
   }, [flows])
 
@@ -56,7 +56,7 @@ export function SoberanosArsTamarTable({ flows, activeTab }: SoberanosArsTamarTa
         !emisorFilter || emisorFilter === "all" || flow.emisor === emisorFilter
 
       const matchesTipo =
-        !tipoFilter || tipoFilter === "all" || flow.details?.tipo === tipoFilter
+        !tipoFilter || tipoFilter === "all" || flow.details?.tipo_cupon === tipoFilter
 
       return matchesSearch && matchesEmisor && matchesTipo
     })
@@ -64,9 +64,9 @@ export function SoberanosArsTamarTable({ flows, activeTab }: SoberanosArsTamarTa
     if (sortField) {
       filtered.sort((a, b) => {
         // sort especial por vencimiento con parser local
-        if (sortField === "details.fecha_vencimiento") {
-          const da = parseLocalISODate(a.details?.fecha_vencimiento)?.getTime() ?? -Infinity
-          const db = parseLocalISODate(b.details?.fecha_vencimiento)?.getTime() ?? -Infinity
+        if (sortField === "details.vencimiento") {
+          const da = parseLocalISODate(a.details?.vencimiento)?.getTime() ?? -Infinity
+          const db = parseLocalISODate(b.details?.vencimiento)?.getTime() ?? -Infinity
           return sortDirection === "asc" ? da - db : db - da
         }
 
@@ -230,7 +230,7 @@ export function SoberanosArsTamarTable({ flows, activeTab }: SoberanosArsTamarTa
                 </Button>
               </TableHead>
               <TableHead className="text-center">
-                <Button variant="ghost" onClick={() => handleSort("details.fecha_vencimiento")} className="h-auto p-0 font-semibold">
+                <Button variant="ghost" onClick={() => handleSort("details.vencimiento")} className="h-auto p-0 font-semibold">
                   Vencimiento <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
               </TableHead>
@@ -284,7 +284,7 @@ export function SoberanosArsTamarTable({ flows, activeTab }: SoberanosArsTamarTa
                 </TableCell>
                 <TableCell className="text-center">{formatPercentage(flow.lastPrice?.ytm)}</TableCell>
                 <TableCell className="text-center">{formatDuration(flow.lastPrice?.duration_y)}</TableCell>
-                <TableCell className="text-center">{formatDate(flow.details?.fecha_vencimiento)}</TableCell>
+                <TableCell className="text-center">{formatDate(flow.details?.vencimiento)}</TableCell>
                 <TableCell className="text-center">{formatPercentage(flow.lastPrice?.tamar_obs)}</TableCell>
                 <TableCell className="text-center">{formatPercentage(flow.lastPrice?.tamar_proy)}</TableCell>
                 <TableCell className="text-center">{formatTem(flow.lastPrice?.tem_obs)}</TableCell>

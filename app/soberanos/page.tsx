@@ -34,7 +34,7 @@ const fetcher = async () => {
 
   const [allFlowsRaw, instrumentsResult, pricesResult] = await Promise.all([
     fetchAllFlows(),
-    supabase.from("instruments").select("*").eq("instrument_type", "HD").eq("is_active", true),
+    supabase.from("instruments_v2").select("*").eq("instrument_type", "HD").eq("is_active", true),
     supabase.from("prices").select("*"),
   ])
 
@@ -67,14 +67,15 @@ const fetcher = async () => {
       emisor: instr?.emisor || "",
       details: instr ? {
         ticker:            instr.symbol,
-        fecha_vencimiento: instr.fecha_vencimiento,
+        vencimiento:       instr.vencimiento,
         legislacion:       instr.legislacion,
         jurisdiccion_pago: instr.jurisdiccion_pago,
-        lamina_minima:     instr.lamina_minima,
-        calleable:         instr.calleable,
-        monto_residual:    instr.monto_residual,
-        moneda:            instr.moneda,
-        tipo:              instr.tipo,
+        lamina_min:        instr.lamina_min,
+        callable:          instr.callable,
+        vr_vigente:        instr.vr_vigente,
+        moneda_denom:      instr.moneda_denom,
+        moneda_pago:       instr.moneda_pago,
+        tipo_cupon:        instr.tipo_cupon,
         cer_emision:       instr.cer_emision,
       } : null,
       lastPrice: price ? {
@@ -118,8 +119,8 @@ export default function SoberanosDashboard() {
     if (filters.emisores?.length) filtered = filtered.filter((f) => filters.emisores!.includes(f.emisor))
     if (filters.fechaVencimientoHasta) {
       filtered = filtered.filter((f) => {
-        if (!f.details?.fecha_vencimiento) return false
-        return new Date(f.details.fecha_vencimiento) <= filters.fechaVencimientoHasta!
+        if (!f.details?.vencimiento) return false
+        return new Date(f.details.vencimiento) <= filters.fechaVencimientoHasta!
       })
     }
     setFilteredDetailsData(filtered)

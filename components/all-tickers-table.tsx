@@ -32,7 +32,7 @@ export function AllTickersTable() {
 
   const fetchAllTickers = async () => {
     try {
-      const { data, error } = await supabase.from("instruments").select("*").order("symbol")
+      const { data, error } = await supabase.from("instruments_v2").select("*").order("symbol")
 
       if (error) throw error
       setTickers(data || [])
@@ -168,11 +168,11 @@ export function AllTickersTable() {
                         {ticker.tipo_activo}
                       </Badge>
                     </TableCell>
-                    <TableCell>{formatDate(ticker.fecha_vencimiento)}</TableCell>
-                    <TableCell>{formatCurrency(ticker.monto_residual)}</TableCell>
+                    <TableCell>{formatDate(ticker.vencimiento)}</TableCell>
+                    <TableCell>{formatCurrency(ticker.vr_vigente)}</TableCell>
                     <TableCell>
-                      <Badge variant={ticker.calleable ? "destructive" : "outline"}>
-                        {ticker.calleable ? "Sí" : "No"}
+                      <Badge variant={ticker.callable ? "destructive" : "outline"}>
+                        {ticker.callable ? "Sí" : "No"}
                       </Badge>
                     </TableCell>
                     <TableCell>{ticker.legislacion || "-"}</TableCell>

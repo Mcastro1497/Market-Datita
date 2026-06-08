@@ -52,9 +52,9 @@ export function DlkDetailsTable({ flows, fxOficial }: DlkDetailsTableProps) {
 
     if (sortField) {
       filtered.sort((a, b) => {
-        if (sortField === "details.fecha_vencimiento") {
-          const da = parseLocalISODate(a.details?.fecha_vencimiento)?.getTime() ?? -Infinity
-          const db = parseLocalISODate(b.details?.fecha_vencimiento)?.getTime() ?? -Infinity
+        if (sortField === "details.vencimiento") {
+          const da = parseLocalISODate(a.details?.vencimiento)?.getTime() ?? -Infinity
+          const db = parseLocalISODate(b.details?.vencimiento)?.getTime() ?? -Infinity
           return sortDirection === "asc" ? da - db : db - da
         }
 
@@ -253,7 +253,7 @@ export function DlkDetailsTable({ flows, fxOficial }: DlkDetailsTableProps) {
               <TableHead className="text-center">
                 <Button
                   variant="ghost"
-                  onClick={() => handleSort("details.fecha_vencimiento")}
+                  onClick={() => handleSort("details.vencimiento")}
                   className="h-auto p-0 font-semibold"
                 >
                   Vencimiento <ArrowUpDown className="ml-2 h-4 w-4" />
@@ -269,7 +269,7 @@ export function DlkDetailsTable({ flows, fxOficial }: DlkDetailsTableProps) {
               <TableHead className="text-center">
                 <Button
                   variant="ghost"
-                  onClick={() => handleSort("details.lamina_minima")}
+                  onClick={() => handleSort("details.lamina_min")}
                   className="h-auto p-0 font-semibold"
                 >
                   Lámina Mínima <ArrowUpDown className="ml-2 h-4 w-4" />
@@ -305,7 +305,7 @@ export function DlkDetailsTable({ flows, fxOficial }: DlkDetailsTableProps) {
                 <TableCell className="text-center">{formatDuration(flow.lastPrice?.duration_y ?? null)}</TableCell>
                 <TableCell className="text-center bg-rose-50">
                   {(() => {
-                    const d = parseLocalISODate(flow.details?.fecha_vencimiento || null)
+                    const d = parseLocalISODate(flow.details?.vencimiento || null)
                     return d ? new Intl.DateTimeFormat("es-AR").format(d) : ""
                   })()}
                 </TableCell>
@@ -313,19 +313,19 @@ export function DlkDetailsTable({ flows, fxOficial }: DlkDetailsTableProps) {
                 <TableCell className="text-center bg-rose-50">{flow.details?.jurisdiccion_pago || ""}</TableCell>
                 <TableCell className="text-center bg-rose-50">{formatPercentage(flow.cupon)}</TableCell>
                 <TableCell className="text-center bg-rose-50">
-                  {formatAmount(flow.details?.lamina_minima ?? null)}
+                  {formatAmount(flow.details?.lamina_min ?? null)}
                 </TableCell>
                 <TableCell className="text-center bg-rose-50">
-                  {flow.details?.calleable !== undefined && flow.details?.calleable !== null ? (
-                    <Badge variant={flow.details.calleable ? "default" : "secondary"}>
-                      {flow.details.calleable ? "Sí" : "No"}
+                  {flow.details?.callable !== undefined && flow.details?.callable !== null ? (
+                    <Badge variant={flow.details.callable ? "default" : "secondary"}>
+                      {flow.details.callable ? "Sí" : "No"}
                     </Badge>
                   ) : (
                     ""
                   )}
                 </TableCell>
                 <TableCell className="text-center bg-rose-50">
-                  {formatAmount(flow.details?.monto_residual ?? null)}
+                  {formatAmount(flow.details?.vr_vigente ?? null)}
                 </TableCell>
               </TableRow>
             ))}

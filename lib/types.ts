@@ -8,14 +8,30 @@ export interface Instrument {
   emisor:            string | null
   legislacion:       string | null
   jurisdiccion_pago: string | null
-  fecha_vencimiento: string | null
-  lamina_minima:     number | null
-  monto_residual:    number | null
-  calleable:         boolean | null
-  moneda:            string | null
-  tipo:              string | null
+  vencimiento:       string | null
+  emision:           string | null
+  lamina_min:        number | null
+  vr_vigente:        number | null
+  callable:          boolean | null
+  moneda_denom:      string | null
+  tipo_cupon:        string | null
   cer_emision:       number | null
-  cupon:             number | null
+  tasa_int:          number | null
+  // ── Columnas nuevas en instruments_v2 ──
+  moneda_pago:       string | null
+  denominacion:      string | null
+  tipo_activo:       string | null
+  clase:             string | null
+  serie:             string | null
+  isin:              string | null
+  convencion_int:    string | null
+  periodicidad_int:  string | null
+  margen_ref:        number | null
+  tasa_ref:          number | null
+  operacion_min:     number | null
+  vn_vigente:        number | null
+  valor_residual:    number | null
+  referencias:       string | null
 }
 
 export interface InstrumentFlow {
@@ -63,12 +79,13 @@ export type ONWithDetails = {
   valor_residual:number | null
   details?: {
     ticker:            string
-    fecha_vencimiento: string | null
+    vencimiento:       string | null
     legislacion:       string | null
     jurisdiccion_pago: string | null
-    lamina_minima:     number | null
-    calleable:         boolean | null
-    monto_residual:    number | null
+    lamina_min:        number | null
+    callable:          boolean | null
+    vr_vigente:        number | null
+    moneda_pago:       string | null
   } | null
   lastPrice?: {
     symbol:        string
@@ -100,14 +117,15 @@ export type SoberanoWithDetails = {
   valor_residual:number | null
   details?: {
     ticker:            string
-    fecha_vencimiento: string | null
+    vencimiento:       string | null
     legislacion:       string | null
     jurisdiccion_pago: string | null
-    lamina_minima:     number | null
-    calleable:         boolean | null
-    monto_residual:    number | null
-    moneda:            string | null
-    tipo:              string | null
+    lamina_min:        number | null
+    callable:          boolean | null
+    vr_vigente:        number | null
+    moneda_denom:      string | null
+    moneda_pago:       string | null
+    tipo_cupon:        string | null
     cer_emision:       number | null
   } | null
   lastPrice?: {
@@ -152,14 +170,15 @@ export type DlkWithDetails = {
   valor_residual:number | null
   details?: {
     ticker:            string
-    fecha_vencimiento: string | null
+    vencimiento:       string | null
     legislacion:       string | null
     jurisdiccion_pago: string | null
-    lamina_minima:     number | null
-    calleable:         boolean | null
-    monto_residual:    number | null
-    moneda:            string | null
-    tipo:              string | null
+    lamina_min:        number | null
+    callable:          boolean | null
+    vr_vigente:        number | null
+    moneda_denom:      string | null
+    moneda_pago:       string | null
+    tipo_cupon:        string | null
     cer_emision:       number | null
   } | null
   lastPrice?: {
@@ -217,15 +236,15 @@ export type ONFlow = {
 export type AllTicker = {
   ticker:            string
   tipo_activo:       string
-  fecha_vencimiento: string | null
-  monto_residual:    number | null
-  calleable:         boolean | null
+  vencimiento:       string | null
+  vr_vigente:        number | null
+  callable:          boolean | null
   legislacion:       string | null
   jurisdiccion_pago: string | null
-  lamina_minima:     number | null
+  lamina_min:        number | null
   sector:            string | null
   rating:            string | null
-  moneda:            string | null
+  moneda_denom:      string | null
   created_at:        string
   updated_at:        string
 }
