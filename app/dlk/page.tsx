@@ -21,7 +21,7 @@ const fetcher = async () => {
     const batchSize = 1000
     while (true) {
       const { data, error } = await supabase
-        .from("instrument_flows")
+        .from("instrument_flows_v2")
         .select("*")
         .order("fecha_pago", { ascending: true })
         .range(start, start + batchSize - 1)

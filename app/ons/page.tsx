@@ -17,14 +17,14 @@ import useSWR from "swr"
 const fetcher = async () => {
   const supabase = createClient()
 
-  // Fetch flows paginado desde instrument_flows
+  // Fetch flows paginado desde instrument_flows_v2
   const fetchAllFlows = async () => {
     let allFlows: any[] = []
     let start = 0
     const batchSize = 1000
     while (true) {
       const { data, error } = await supabase
-        .from("instrument_flows")
+        .from("instrument_flows_v2")
         .select("*")
         .order("fecha_pago", { ascending: true })
         .range(start, start + batchSize - 1)
