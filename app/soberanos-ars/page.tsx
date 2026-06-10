@@ -83,6 +83,7 @@ const fetcher = async () => {
       lastPrice: price ? {
         ...price,
         change:    price.change_pct,
+        last:      price.price_ars ?? price.closing_price,
         price_usd: price.last,
       } : null,
     }

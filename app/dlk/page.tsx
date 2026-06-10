@@ -68,7 +68,7 @@ const fetcher = async () => {
   const flowsWithDetails: DlkWithDetails[] = Array.from(byTicker.values()).map((flow: any) => {
     const instr = instrumentsMap.get(flow.symbol) as any
     const price = pricesMap.get(flow.symbol) as any
-    const priceArs = price?.last != null ? Number(price.last) : null
+    const priceArs = price?.price_ars != null ? Number(price.price_ars) : price?.closing_price != null ? Number(price.closing_price) : null
     const priceUsd = priceArs != null && fxOficial && fxOficial > 0 ? priceArs / fxOficial : null
     return {
       ...flow,
