@@ -77,10 +77,10 @@ export function InstrumentFlowsUploader({ onUploadComplete }: Props) {
 
       setProgress(60)
 
-      // Verificar que los symbols existen en instruments
+      // Verificar que los symbols existen en instruments_v2
       const symbols = [...new Set(valid.map(r => r.symbol))]
       const { data: existingInstr } = await supabase
-        .from("instruments").select("symbol").in("symbol", symbols)
+        .from("instruments_v2").select("symbol").in("symbol", symbols)
       const validSymbols = new Set(existingInstr?.map((i: any) => i.symbol) || [])
       const unknownSymbols = symbols.filter(s => !validSymbols.has(s))
 
@@ -91,14 +91,14 @@ export function InstrumentFlowsUploader({ onUploadComplete }: Props) {
       setProgress(80)
 
       if (toInsert.length > 0) {
-        const { error } = await supabase.from("instrument_flows").insert(toInsert)
+        const { error } = await supabase.from("instrument_flows_v2").insert(toInsert)
         if (error) throw error
       }
 
       setProgress(100)
       let msg = `${toInsert.length} flujos cargados correctamente.`
       if (invalid > 0) msg += ` ${invalid} filas omitidas por datos inválidos.`
-      if (unknownSymbols.length > 0) msg += ` Symbols no encontrados en instruments: ${unknownSymbols.slice(0,5).join(", ")}.`
+      if (unknownSymbols.length > 0) msg += ` Symbols no encontrados en instruments_v2: ${unknownSymbols.slice(0,5).join(", ")}.`
       setMessage({ type: "success", text: msg })
       onUploadComplete()
     } catch (error) {
