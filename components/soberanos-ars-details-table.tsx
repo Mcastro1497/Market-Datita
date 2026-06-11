@@ -51,6 +51,11 @@ const formatDuration = (value: number | null | undefined) => {
   if (value === null || value === undefined) return "—"
   return `${value.toFixed(2)} años`
 }
+// margen_ref viene como número-porcentaje (ej. 6.5 = 6,50%), no como fracción
+const formatPctRaw = (value: number | null | undefined) => {
+  if (value === null || value === undefined) return "—"
+  return `${value.toFixed(2)}%`
+}
 
 export function SoberanosArsDetailsTable({ flows, activeTab }: SoberanosArsDetailsTableProps) {
   const [sortField, setSortField] = useState<string>("")
@@ -138,9 +143,7 @@ export function SoberanosArsDetailsTable({ flows, activeTab }: SoberanosArsDetai
               <SortHead field="lastPrice.ytm" label="TIR" />
               <SortHead field="lastPrice.duration_y" label="Duración" />
               {isFija && <SortHead field="lastPrice.tna" label="TNA" />}
-              {isTamar && <SortHead field="lastPrice.tamar_obs" label="TAMAR Obs." />}
-              {isTamar && <SortHead field="lastPrice.tamar_proy" label="TAMAR Proy." />}
-              <SortHead field="details.vencimiento" label="Vto." />
+              {!isTamar && <SortHead field="details.vencimiento" label="Vto." />}
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -162,9 +165,7 @@ export function SoberanosArsDetailsTable({ flows, activeTab }: SoberanosArsDetai
                   <TableCell className="text-center tabular-nums">{formatPercentage(flow.lastPrice?.ytm)}</TableCell>
                   <TableCell className="text-center tabular-nums">{formatDuration(flow.lastPrice?.duration_y)}</TableCell>
                   {isFija && <TableCell className="text-center tabular-nums">{formatPercentage(flow.lastPrice?.tna)}</TableCell>}
-                  {isTamar && <TableCell className="text-center tabular-nums">{formatPercentage(flow.lastPrice?.tamar_obs)}</TableCell>}
-                  {isTamar && <TableCell className="text-center tabular-nums">{formatPercentage(flow.lastPrice?.tamar_proy)}</TableCell>}
-                  <TableCell className="text-center">{formatDate(flow.details?.vencimiento)}</TableCell>
+                  {!isTamar && <TableCell className="text-center">{formatDate(flow.details?.vencimiento)}</TableCell>}
                 </TableRow>
               )
             })}
@@ -184,6 +185,7 @@ export function SoberanosArsDetailsTable({ flows, activeTab }: SoberanosArsDetai
 // ── Carta de detalle ──────────────────────────────────────
 function BondDetailDialog({ flow, onClose }: { flow: SoberanoWithDetails | null; onClose: () => void }) {
   const d = flow?.details
+  const isTamar = d?.instrument_type === "TAMAR"
   return (
     <Dialog open={!!flow} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-2xl">
@@ -222,7 +224,8 @@ function BondDetailDialog({ flow, onClose }: { flow: SoberanoWithDetails | null;
               <Field label="Tasa interés" value={formatPercentage(d?.tasa_int)} />
               <Field label="Convención int." value={d?.convencion_int} />
               <Field label="Periodicidad int." value={d?.periodicidad_int} />
-              <Field label="CER emisión" value={formatDecimal(d?.cer_emision)} />
+              {!isTamar && <Field label="CER emisión" value={formatDecimal(d?.cer_emision)} />}
+              {isTamar && <Field label="Margen ref." value={formatPctRaw(d?.margen_ref)} />}
               <Field label="Lámina mínima" value={formatAmount(d?.lamina_min)} />
               <Field label="Operación mínima" value={formatAmount(d?.operacion_min)} />
               <Field label="VR vigente" value={formatAmount(d?.vr_vigente)} />
@@ -238,6 +241,22 @@ function BondDetailDialog({ flow, onClose }: { flow: SoberanoWithDetails | null;
                 }
               />
             </div>
+
+            {isTamar && (
+              <>
+                <Separator />
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Métricas TAMAR</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2 text-sm">
+                  <Field label="TAMAR observada" value={formatPercentage(flow.lastPrice?.tamar_obs)} />
+                  <Field label="TAMAR proyectada" value={formatPercentage(flow.lastPrice?.tamar_proy)} />
+                  <Field label="TEM observada" value={formatPercentage(flow.lastPrice?.tem_obs)} />
+                  <Field label="TEM proyectada" value={formatPercentage(flow.lastPrice?.tem_proy)} />
+                  <Field label="TEM ponderada" value={formatPercentage(flow.lastPrice?.tem_ponderada)} />
+                  <Field label="TEM margen" value={formatPercentage(flow.lastPrice?.tem_margen)} />
+                  <Field label="TEM total" value={formatPercentage(flow.lastPrice?.tem_total)} />
+                </div>
+              </>
+            )}
           </>
         )}
       </DialogContent>

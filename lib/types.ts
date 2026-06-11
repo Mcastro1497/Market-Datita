@@ -99,6 +99,7 @@ export type ONWithDetails = {
     emision?:          string | null
     ticker_usd?:       string | null
     referencias?:      string | null
+    margen_ref?:       number | null
   } | null
   lastPrice?: {
     symbol:        string
@@ -153,6 +154,7 @@ export type SoberanoWithDetails = {
     emision?:          string | null
     ticker_usd?:       string | null
     referencias?:      string | null
+    margen_ref?:       number | null
   } | null
   lastPrice?: {
     symbol:        string
@@ -219,6 +221,7 @@ export type DlkWithDetails = {
     emision?:          string | null
     ticker_usd?:       string | null
     referencias?:      string | null
+    margen_ref?:       number | null
   } | null
   lastPrice?: {
     symbol:        string

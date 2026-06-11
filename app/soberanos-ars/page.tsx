@@ -94,6 +94,7 @@ const fetcher = async () => {
         emision:           instr.emision,
         ticker_usd:        instr.ticker_usd,
         referencias:       instr.referencias,
+        margen_ref:        instr.margen_ref,
       } : null,
       lastPrice: price ? {
         ...price,
