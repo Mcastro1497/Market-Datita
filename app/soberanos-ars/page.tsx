@@ -35,14 +35,19 @@ const fetcher = async () => {
 
   const [allFlowsRaw, instrumentsResult, pricesResult] = await Promise.all([
     fetchAllFlows(),
-    supabase.from("instruments_v2").select("*").in("instrument_type", ["CER", "FIJA", "TAMAR"]).eq("is_active", true),
+    supabase.from("instruments_v2").select("*").eq("moneda_pago", "ARS").eq("is_active", true),
     supabase.from("prices").select("*"),
   ])
 
   if (instrumentsResult.error) throw instrumentsResult.error
   if (pricesResult.error) throw pricesResult.error
 
-  const instrumentsData = instrumentsResult.data || []
+  // Categoría del tab según la referencia de tasa (instruments_v2.referencias)
+  const categoriaArs = (ref: string | null) =>
+    ref === "CER" ? "CER" : ref === "Tamar" ? "TAMAR" : ref === "A3500" ? "DLK" : "FIJA"
+
+  // moneda_pago=ARS incluye dólar-linked (referencias=A3500); esos van al dashboard DLK, acá se excluyen
+  const instrumentsData = (instrumentsResult.data || []).filter((i: any) => i.referencias !== "A3500")
   const pricesData = pricesResult.data || []
 
   const arsSymbols = new Set(instrumentsData.map((i: any) => i.symbol))
@@ -68,7 +73,7 @@ const fetcher = async () => {
       emisor: instr?.emisor || "Tesoro Argentino",
       details: instr ? {
         ticker:            instr.symbol,
-        instrument_type:   instr.instrument_type,
+        instrument_type:   categoriaArs(instr.referencias),
         vencimiento:       instr.vencimiento,
         legislacion:       instr.legislacion,
         jurisdiccion_pago: instr.jurisdiccion_pago,
