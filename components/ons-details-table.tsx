@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo, type ReactNode } from "react"
+import { useState, useMemo, Fragment, type ReactNode } from "react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -8,7 +8,9 @@ import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Separator } from "@/components/ui/separator"
 import type { ONWithDetails } from "@/lib/types"
-import { ArrowUpDown, Search } from "lucide-react"
+import { ArrowUpDown, Search, Users, CalendarDays, List, ChevronRight, ChevronDown } from "lucide-react"
+
+type GroupBy = "none" | "emisor" | "year"
 
 interface ONDetailsTableProps {
   flows: ONWithDetails[]
@@ -48,11 +50,22 @@ const formatDuration = (value: number | null | undefined) => {
   return `${value.toFixed(2)} años`
 }
 
+const COL_COUNT = 9
+
 export function ONDetailsTable({ flows }: ONDetailsTableProps) {
   const [sortField, setSortField] = useState<string>("")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
   const [searchTerm, setSearchTerm] = useState("")
   const [selected, setSelected] = useState<ONWithDetails | null>(null)
+  const [groupBy, setGroupBy] = useState<GroupBy>("none")
+  const [openGroups, setOpenGroups] = useState<Set<string>>(new Set())
+
+  const toggleGroup = (key: string) =>
+    setOpenGroups((prev) => {
+      const next = new Set(prev)
+      next.has(key) ? next.delete(key) : next.add(key)
+      return next
+    })
 
   const filteredAndSortedFlows = useMemo(() => {
     const q = searchTerm.trim().toLowerCase()
@@ -117,17 +130,79 @@ export function ONDetailsTable({ flows }: ONDetailsTableProps) {
     </TableHead>
   )
 
+  const renderRow = (flow: ONWithDetails) => {
+    const chg = flow.lastPrice?.change
+    return (
+      <TableRow key={flow.id} onClick={() => setSelected(flow)} className="cursor-pointer hover:bg-muted/50">
+        <TableCell className="text-left">{flow.emisor || "—"}</TableCell>
+        <TableCell className="text-left font-medium">{flow.ticker}</TableCell>
+        <TableCell className="text-center tabular-nums">{formatCurrency(flow.lastPrice?.last)}</TableCell>
+        <TableCell className="text-center tabular-nums">
+          <span className={chg && chg > 0 ? "text-green-600" : chg && chg < 0 ? "text-red-600" : "text-muted-foreground"}>
+            {formatPercentage(chg)}
+          </span>
+        </TableCell>
+        <TableCell className="text-center tabular-nums">{formatPercentage(flow.lastPrice?.ytm)}</TableCell>
+        <TableCell className="text-center tabular-nums">{formatDuration(flow.lastPrice?.duration_y)}</TableCell>
+        <TableCell className="text-center">{formatDate(flow.details?.vencimiento)}</TableCell>
+        <TableCell className="text-center">{flow.details?.legislacion || "—"}</TableCell>
+        <TableCell className="text-center">{flow.details?.jurisdiccion_pago || "—"}</TableCell>
+      </TableRow>
+    )
+  }
+
+  const groups = useMemo(() => {
+    if (groupBy === "none") return []
+    const map = new Map<string, ONWithDetails[]>()
+    for (const flow of filteredAndSortedFlows) {
+      let key: string
+      if (groupBy === "emisor") {
+        key = flow.emisor || "Sin emisor"
+      } else {
+        const d = parseLocalISODate(flow.details?.vencimiento)
+        key = d ? String(d.getFullYear()) : "Sin vencimiento"
+      }
+      const arr = map.get(key)
+      if (arr) arr.push(flow)
+      else map.set(key, [flow])
+    }
+    const entries = [...map.entries()]
+    entries.sort((a, b) => {
+      if (groupBy === "year") {
+        const na = Number(a[0])
+        const nb = Number(b[0])
+        if (Number.isNaN(na)) return 1
+        if (Number.isNaN(nb)) return -1
+        return na - nb
+      }
+      return a[0].localeCompare(b[0])
+    })
+    return entries.map(([key, rows]) => ({ key, rows }))
+  }, [filteredAndSortedFlows, groupBy])
+
   return (
     <div className="space-y-4">
-      {/* Búsqueda */}
-      <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
-        <Input
-          placeholder="Buscar por ticker, emisor o ticker USD..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="pl-10"
-        />
+      {/* Búsqueda + agrupar */}
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative flex-1 min-w-[220px] max-w-md">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />
+          <Input
+            placeholder="Buscar por ticker, emisor o ticker USD..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+        </div>
+        <span className="text-sm text-muted-foreground ml-auto">Agrupar:</span>
+        <Button size="sm" variant={groupBy === "emisor" ? "default" : "outline"} onClick={() => setGroupBy("emisor")}>
+          <Users className="h-4 w-4 mr-1.5" />Por emisor
+        </Button>
+        <Button size="sm" variant={groupBy === "year" ? "default" : "outline"} onClick={() => setGroupBy("year")}>
+          <CalendarDays className="h-4 w-4 mr-1.5" />Por año de vto.
+        </Button>
+        <Button size="sm" variant={groupBy === "none" ? "default" : "outline"} onClick={() => setGroupBy("none")}>
+          <List className="h-4 w-4 mr-1.5" />Desagrupar
+        </Button>
       </div>
 
       {/* Tabla slim */}
@@ -147,36 +222,32 @@ export function ONDetailsTable({ flows }: ONDetailsTableProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredAndSortedFlows.map((flow) => {
-              const chg = flow.lastPrice?.change
-              return (
-                <TableRow
-                  key={flow.id}
-                  onClick={() => setSelected(flow)}
-                  className="cursor-pointer hover:bg-muted/50"
-                >
-                  <TableCell className="text-left">{flow.emisor || "—"}</TableCell>
-                  <TableCell className="text-left font-medium">{flow.ticker}</TableCell>
-                  <TableCell className="text-center tabular-nums">{formatCurrency(flow.lastPrice?.last)}</TableCell>
-                  <TableCell className="text-center tabular-nums">
-                    <span className={chg && chg > 0 ? "text-green-600" : chg && chg < 0 ? "text-red-600" : "text-muted-foreground"}>
-                      {formatPercentage(chg)}
-                    </span>
-                  </TableCell>
-                  <TableCell className="text-center tabular-nums">{formatPercentage(flow.lastPrice?.ytm)}</TableCell>
-                  <TableCell className="text-center tabular-nums">{formatDuration(flow.lastPrice?.duration_y)}</TableCell>
-                  <TableCell className="text-center">{formatDate(flow.details?.vencimiento)}</TableCell>
-                  <TableCell className="text-center">{flow.details?.legislacion || "—"}</TableCell>
-                  <TableCell className="text-center">{flow.details?.jurisdiccion_pago || "—"}</TableCell>
-                </TableRow>
-              )
-            })}
+            {groupBy === "none"
+              ? filteredAndSortedFlows.map(renderRow)
+              : groups.map((g) => {
+                  const isOpen = openGroups.has(g.key)
+                  return (
+                    <Fragment key={g.key}>
+                      <TableRow className="cursor-pointer bg-muted/60 hover:bg-muted" onClick={() => toggleGroup(g.key)}>
+                        <TableCell colSpan={COL_COUNT} className="font-semibold">
+                          <div className="flex items-center gap-2">
+                            {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+                            <span>{g.key}</span>
+                            <Badge variant="secondary">{g.rows.length}</Badge>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                      {isOpen && g.rows.map(renderRow)}
+                    </Fragment>
+                  )
+                })}
           </TableBody>
         </Table>
       </div>
 
       <div className="text-xs text-muted-foreground text-center">
-        Tocá una fila para ver el detalle • Mostrando {filteredAndSortedFlows.length} de {flows.length} ONs
+        Tocá una fila para ver el detalle • {filteredAndSortedFlows.length} de {flows.length} ONs
+        {groupBy !== "none" ? ` · ${groups.length} grupos` : ""}
       </div>
 
       {/* Modal de detalle */}
