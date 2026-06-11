@@ -98,6 +98,7 @@ export type ONWithDetails = {
     tasa_int?:         number | null
     emision?:          string | null
     ticker_usd?:       string | null
+    referencias?:      string | null
   } | null
   lastPrice?: {
     symbol:        string
@@ -151,6 +152,7 @@ export type SoberanoWithDetails = {
     tasa_int?:         number | null
     emision?:          string | null
     ticker_usd?:       string | null
+    referencias?:      string | null
   } | null
   lastPrice?: {
     symbol:        string
@@ -216,6 +218,7 @@ export type DlkWithDetails = {
     tasa_int?:         number | null
     emision?:          string | null
     ticker_usd?:       string | null
+    referencias?:      string | null
   } | null
   lastPrice?: {
     symbol:        string
