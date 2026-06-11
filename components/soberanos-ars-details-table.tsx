@@ -51,11 +51,6 @@ const formatDuration = (value: number | null | undefined) => {
   if (value === null || value === undefined) return "—"
   return `${value.toFixed(2)} años`
 }
-// margen_ref viene como número-porcentaje (ej. 6.5 = 6,50%), no como fracción
-const formatPctRaw = (value: number | null | undefined) => {
-  if (value === null || value === undefined) return "—"
-  return `${value.toFixed(2)}%`
-}
 
 export function SoberanosArsDetailsTable({ flows, activeTab }: SoberanosArsDetailsTableProps) {
   const [sortField, setSortField] = useState<string>("")
@@ -224,7 +219,7 @@ function BondDetailDialog({ flow, onClose }: { flow: SoberanoWithDetails | null;
               <Field label="Convención int." value={d?.convencion_int} />
               <Field label="Periodicidad int." value={d?.periodicidad_int} />
               {!isTamar && <Field label="CER emisión" value={formatDecimal(d?.cer_emision)} />}
-              {isTamar && <Field label="Margen ref." value={formatPctRaw(d?.margen_ref)} />}
+              {isTamar && <Field label="Margen ref." value={formatPercentage(d?.margen_ref)} />}
               <Field label="Lámina mínima" value={formatAmount(d?.lamina_min)} />
               <Field label="Operación mínima" value={formatAmount(d?.operacion_min)} />
               <Field label="VR vigente" value={formatAmount(d?.vr_vigente)} />
