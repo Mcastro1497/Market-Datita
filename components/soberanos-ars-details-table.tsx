@@ -240,15 +240,17 @@ export function SoberanosArsDetailsTable({ flows, activeTab }: SoberanosArsDetai
                   Var % <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
               </TableHead>
-              <TableHead className="text-center">
-                <Button
-                  variant="ghost"
-                  onClick={() => handleSort("lastPrice.tna")}
-                  className="h-auto p-0 font-semibold"
-                >
-                  TNA <ArrowUpDown className="ml-2 h-4 w-4" />
-                   </Button>
-              </TableHead>
+              {activeTab === "FIJA" && (
+                <TableHead className="text-center">
+                  <Button
+                    variant="ghost"
+                    onClick={() => handleSort("lastPrice.tna")}
+                    className="h-auto p-0 font-semibold"
+                  >
+                    TNA <ArrowUpDown className="ml-2 h-4 w-4" />
+                  </Button>
+                </TableHead>
+              )}
               <TableHead className="text-center">
                 <Button
                   variant="ghost"
@@ -267,6 +269,28 @@ export function SoberanosArsDetailsTable({ flows, activeTab }: SoberanosArsDetai
                   Duración <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
               </TableHead>
+              {activeTab === "TAMAR" && (
+                <>
+                  <TableHead className="text-center">
+                    <Button
+                      variant="ghost"
+                      onClick={() => handleSort("lastPrice.tamar_obs")}
+                      className="h-auto p-0 font-semibold"
+                    >
+                      TAMAR Obs. <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
+                  </TableHead>
+                  <TableHead className="text-center">
+                    <Button
+                      variant="ghost"
+                      onClick={() => handleSort("lastPrice.tamar_proy")}
+                      className="h-auto p-0 font-semibold"
+                    >
+                      TAMAR Proy. <ArrowUpDown className="ml-2 h-4 w-4" />
+                    </Button>
+                  </TableHead>
+                </>
+              )}
               <TableHead className="text-center">
                 <Button
                   variant="ghost"
@@ -327,9 +351,17 @@ export function SoberanosArsDetailsTable({ flows, activeTab }: SoberanosArsDetai
                     {formatPercentage(flow.lastPrice?.change)}
                   </span>
                 </TableCell>
-                <TableCell className="text-center">{formatPercentage(flow.lastPrice?.tna)}</TableCell>
+                {activeTab === "FIJA" && (
+                  <TableCell className="text-center">{formatPercentage(flow.lastPrice?.tna)}</TableCell>
+                )}
                 <TableCell className="text-center">{formatPercentage(flow.lastPrice?.ytm)}</TableCell>
                 <TableCell className="text-center">{formatDuration(flow.lastPrice?.duration_y)}</TableCell>
+                {activeTab === "TAMAR" && (
+                  <>
+                    <TableCell className="text-center">{formatPercentage(flow.lastPrice?.tamar_obs)}</TableCell>
+                    <TableCell className="text-center">{formatPercentage(flow.lastPrice?.tamar_proy)}</TableCell>
+                  </>
+                )}
                 <TableCell className="text-center">{formatDate(flow.details?.vencimiento)}</TableCell>
                 <TableCell className="text-center">{flow.details?.moneda_denom ?? "—"}</TableCell>
                 <TableCell className="text-center">{formatAmount(flow.details?.lamina_min)}</TableCell>
