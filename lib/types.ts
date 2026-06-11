@@ -86,6 +86,18 @@ export type ONWithDetails = {
     callable:          boolean | null
     vr_vigente:        number | null
     moneda_pago:       string | null
+    // ── Detalle ampliado (instruments_v2) ──
+    tipo_cupon?:       string | null
+    denominacion?:     string | null
+    isin?:             string | null
+    convencion_int?:   string | null
+    periodicidad_int?: string | null
+    operacion_min?:    number | null
+    vn_vigente?:       number | null
+    valor_residual?:   number | null
+    tasa_int?:         number | null
+    emision?:          string | null
+    ticker_usd?:       string | null
   } | null
   lastPrice?: {
     symbol:        string
