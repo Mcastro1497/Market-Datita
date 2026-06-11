@@ -135,7 +135,7 @@ export function SoberanosDetailsTable({ flows }: SoberanosDetailsTableProps) {
         <Table>
           <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
             <TableRow>
-              <SortHead field="ticker" label="Ticker" className="text-left" />
+              <SortHead field="ticker" label="Ticker" />
               <SortHead field="lastPrice.last" label="Precio USD" />
               <SortHead field="lastPrice.change" label="Var %" />
               <SortHead field="lastPrice.ytm" label="YTM" />
@@ -154,7 +154,7 @@ export function SoberanosDetailsTable({ flows }: SoberanosDetailsTableProps) {
                   onClick={() => setSelected(flow)}
                   className="cursor-pointer hover:bg-muted/50"
                 >
-                  <TableCell className="text-left font-medium">{flow.ticker}</TableCell>
+                  <TableCell className="text-center font-medium">{flow.ticker}</TableCell>
                   <TableCell className="text-center tabular-nums">{formatCurrency(flow.lastPrice?.last)}</TableCell>
                   <TableCell className="text-center tabular-nums">
                     <span className={chg && chg > 0 ? "text-green-600" : chg && chg < 0 ? "text-red-600" : "text-muted-foreground"}>
