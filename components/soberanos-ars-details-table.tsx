@@ -64,7 +64,6 @@ export function SoberanosArsDetailsTable({ flows, activeTab }: SoberanosArsDetai
   const [selected, setSelected] = useState<SoberanoWithDetails | null>(null)
 
   const isFija = activeTab === "FIJA"
-  const isTamar = activeTab === "TAMAR"
 
   const filteredAndSortedFlows = useMemo(() => {
     const q = searchTerm.trim().toLowerCase()
@@ -143,7 +142,7 @@ export function SoberanosArsDetailsTable({ flows, activeTab }: SoberanosArsDetai
               <SortHead field="lastPrice.ytm" label="TIR" />
               <SortHead field="lastPrice.duration_y" label="Duración" />
               {isFija && <SortHead field="lastPrice.tna" label="TNA" />}
-              {!isTamar && <SortHead field="details.vencimiento" label="Vto." />}
+              <SortHead field="details.vencimiento" label="Vto." />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -165,7 +164,7 @@ export function SoberanosArsDetailsTable({ flows, activeTab }: SoberanosArsDetai
                   <TableCell className="text-center tabular-nums">{formatPercentage(flow.lastPrice?.ytm)}</TableCell>
                   <TableCell className="text-center tabular-nums">{formatDuration(flow.lastPrice?.duration_y)}</TableCell>
                   {isFija && <TableCell className="text-center tabular-nums">{formatPercentage(flow.lastPrice?.tna)}</TableCell>}
-                  {!isTamar && <TableCell className="text-center">{formatDate(flow.details?.vencimiento)}</TableCell>}
+                  <TableCell className="text-center">{formatDate(flow.details?.vencimiento)}</TableCell>
                 </TableRow>
               )
             })}
