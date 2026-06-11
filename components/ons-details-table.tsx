@@ -1,14 +1,15 @@
 "use client"
 
-import { useState, useMemo, Fragment, type ReactNode } from "react"
+import { useState, useMemo, type ReactNode } from "react"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import type { ONWithDetails } from "@/lib/types"
-import { ArrowUpDown, Search, Users, CalendarDays, List, ChevronRight, ChevronDown } from "lucide-react"
+import { ArrowUpDown, Search, Users, CalendarDays, List, ChevronDown } from "lucide-react"
 
 type GroupBy = "none" | "emisor" | "year"
 
@@ -49,8 +50,6 @@ const formatDuration = (value: number | null | undefined) => {
   if (value === null || value === undefined) return "—"
   return `${value.toFixed(2)} años`
 }
-
-const COL_COUNT = 9
 
 export function ONDetailsTable({ flows }: ONDetailsTableProps) {
   const [sortField, setSortField] = useState<string>("")
@@ -151,6 +150,28 @@ export function ONDetailsTable({ flows }: ONDetailsTableProps) {
     )
   }
 
+  const renderHeader = () => (
+    <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
+      <TableRow>
+        <SortHead field="emisor" label="Emisor" className="text-left" />
+        <SortHead field="ticker" label="Ticker" className="text-left" />
+        <SortHead field="lastPrice.last" label="Precio USD" />
+        <SortHead field="lastPrice.change" label="Var %" />
+        <SortHead field="lastPrice.ytm" label="YTM" />
+        <SortHead field="lastPrice.duration_y" label="Duración" />
+        <SortHead field="details.vencimiento" label="Vto." />
+        <SortHead field="details.legislacion" label="Legislación" />
+        <SortHead field="details.jurisdiccion_pago" label="Jurisdicción Pago" />
+      </TableRow>
+    </TableHeader>
+  )
+
+  const avgYtm = (rows: ONWithDetails[]) => {
+    const vals = rows.map((r) => r.lastPrice?.ytm).filter((v): v is number => v != null)
+    if (!vals.length) return "—"
+    return `${((vals.reduce((a, b) => a + b, 0) / vals.length) * 100).toFixed(1)}%`
+  }
+
   const groups = useMemo(() => {
     if (groupBy === "none") return []
     const map = new Map<string, ONWithDetails[]>()
@@ -205,45 +226,58 @@ export function ONDetailsTable({ flows }: ONDetailsTableProps) {
         </Button>
       </div>
 
-      {/* Tabla slim */}
-      <div className="rounded-md border overflow-auto max-h-[72vh]" style={{ scrollbarWidth: "thin" }}>
-        <Table>
-          <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
-            <TableRow>
-              <SortHead field="emisor" label="Emisor" className="text-left" />
-              <SortHead field="ticker" label="Ticker" className="text-left" />
-              <SortHead field="lastPrice.last" label="Precio USD" />
-              <SortHead field="lastPrice.change" label="Var %" />
-              <SortHead field="lastPrice.ytm" label="YTM" />
-              <SortHead field="lastPrice.duration_y" label="Duración" />
-              <SortHead field="details.vencimiento" label="Vto." />
-              <SortHead field="details.legislacion" label="Legislación" />
-              <SortHead field="details.jurisdiccion_pago" label="Jurisdicción Pago" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {groupBy === "none"
-              ? filteredAndSortedFlows.map(renderRow)
-              : groups.map((g) => {
-                  const isOpen = openGroups.has(g.key)
-                  return (
-                    <Fragment key={g.key}>
-                      <TableRow className="cursor-pointer bg-muted/60 hover:bg-muted" onClick={() => toggleGroup(g.key)}>
-                        <TableCell colSpan={COL_COUNT} className="font-semibold">
-                          <div className="flex items-center gap-2">
-                            {isOpen ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                            <span>{g.key}</span>
-                            <Badge variant="secondary">{g.rows.length}</Badge>
-                          </div>
-                        </TableCell>
-                      </TableRow>
-                      {isOpen && g.rows.map(renderRow)}
-                    </Fragment>
-                  )
-                })}
-          </TableBody>
-        </Table>
-      </div>
+      {/* Vista plana */}
+      {groupBy === "none" ? (
+        <div className="rounded-md border overflow-auto max-h-[72vh]" style={{ scrollbarWidth: "thin" }}>
+          <Table>
+            {renderHeader()}
+            <TableBody>{filteredAndSortedFlows.map(renderRow)}</TableBody>
+          </Table>
+        </div>
+      ) : (
+        /* Vista agrupada: grilla de tarjetas que se expanden */
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 items-start">
+          {groups.map((g) => {
+            const isOpen = openGroups.has(g.key)
+            if (!isOpen) {
+              return (
+                <Card
+                  key={g.key}
+                  onClick={() => toggleGroup(g.key)}
+                  className="cursor-pointer transition-colors hover:border-primary/60 hover:bg-muted/30"
+                >
+                  <CardContent className="flex flex-col items-center justify-center gap-1 p-4 text-center min-h-[110px]">
+                    <div className="text-base font-bold leading-tight">{g.key}</div>
+                    <Badge variant="secondary">
+                      {g.rows.length} {g.rows.length === 1 ? "bono" : "bonos"}
+                    </Badge>
+                    <div className="text-xs text-muted-foreground">YTM prom. {avgYtm(g.rows)}</div>
+                  </CardContent>
+                </Card>
+              )
+            }
+            return (
+              <Card key={g.key} className="col-span-full">
+                <CardHeader
+                  onClick={() => toggleGroup(g.key)}
+                  className="flex flex-row items-center gap-2 py-3 cursor-pointer hover:bg-muted/30"
+                >
+                  <ChevronDown className="h-4 w-4" />
+                  <span className="text-base font-bold">{g.key}</span>
+                  <Badge variant="secondary">{g.rows.length}</Badge>
+                  <span className="text-xs text-muted-foreground ml-auto">YTM prom. {avgYtm(g.rows)}</span>
+                </CardHeader>
+                <CardContent className="p-0 overflow-auto">
+                  <Table>
+                    {renderHeader()}
+                    <TableBody>{g.rows.map(renderRow)}</TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+            )
+          })}
+        </div>
+      )}
 
       <div className="text-xs text-muted-foreground text-center">
         Tocá una fila para ver el detalle • {filteredAndSortedFlows.length} de {flows.length} ONs
