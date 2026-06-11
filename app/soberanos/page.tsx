@@ -50,19 +50,6 @@ const fetcher = async () => {
   const instrumentsMap = new Map(instrumentsData.map((i: any) => [i.symbol, i]))
   const pricesMap = new Map(pricesData.map((p: any) => [p.symbol, p]))
 
-  // 🔎 DIAG PRECIOS TEMPORAL — borrar después
-  {
-    const hdSyms = [...hdSymbols] as string[]
-    const conMatch = hdSyms.filter((s) => pricesMap.has(s))
-    const sinMatch = hdSyms.filter((s) => !pricesMap.has(s))
-    console.log("🔎 prices: filas =", pricesData.length)
-    console.log("🔎 prices symbols (primeros 15) =", pricesData.slice(0, 15).map((p: any) => JSON.stringify(p.symbol)))
-    console.log("🔎 HD symbols de v2 =", hdSyms.map((s) => JSON.stringify(s)))
-    console.log("🔎 HD CON precio =", conMatch.length, "| SIN precio =", sinMatch.length)
-    console.log("🔎 HD SIN precio (ej) =", sinMatch.slice(0, 15).map((s) => JSON.stringify(s)))
-  }
-  // 🔎 FIN DIAG
-
   const byTicker = new Map<string, any>()
   flowsData.forEach((flow: any) => {
     const existing = byTicker.get(flow.symbol)
@@ -90,6 +77,16 @@ const fetcher = async () => {
         moneda_pago:       instr.moneda_pago,
         tipo_cupon:        instr.tipo_cupon,
         cer_emision:       instr.cer_emision,
+        denominacion:      instr.denominacion,
+        isin:              instr.isin,
+        convencion_int:    instr.convencion_int,
+        periodicidad_int:  instr.periodicidad_int,
+        operacion_min:     instr.operacion_min,
+        vn_vigente:        instr.vn_vigente,
+        valor_residual:    instr.valor_residual,
+        tasa_int:          instr.tasa_int,
+        emision:           instr.emision,
+        ticker_usd:        instr.ticker_usd,
       } : null,
       lastPrice: price ? {
         ...price,
