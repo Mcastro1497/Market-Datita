@@ -6,7 +6,7 @@ import { DlkDetailsTable } from "@/components/dlk-details-table"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
 import type { DlkWithDetails } from "@/lib/types"
-import { Loader2, RefreshCw } from "lucide-react"
+import { Loader2, RefreshCw, Link2 } from "lucide-react"
 import useSWR from "swr"
 
 const FX_SYMBOL = "UST" // tipo de cambio oficial guardado en `prices`
