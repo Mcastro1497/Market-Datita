@@ -15,7 +15,7 @@ const dashboards = [
     icon: TrendingUp,
     title: "Obligaciones Negociables",
     description: "Dashboard completo para análisis de ONs con flujos de pagos y detalles técnicos",
-    cta: "Acceder a Dashboard de ONs",
+    cta: "ONs",
     accent: "var(--lb-violet)",
     fg: "#ffffff",
     tint: "color-mix(in srgb, var(--lb-violet) 12%, transparent)",
@@ -30,7 +30,7 @@ const dashboards = [
     icon: DollarSign,
     title: "Soberanos Hard Dollar",
     description: "Dashboard especializado para bonos soberanos denominados en dólares estadounidenses",
-    cta: "Acceder a Dashboard de Soberanos",
+    cta: "Soberanos HD",
     accent: "var(--lb-violet-accent)",
     fg: "#ffffff",
     tint: "color-mix(in srgb, var(--lb-violet-accent) 12%, transparent)",
@@ -45,7 +45,7 @@ const dashboards = [
     icon: PiggyBank,
     title: "Soberanos ARS",
     description: "Dashboard especializado para bonos soberanos denominados en pesos argentinos",
-    cta: "Acceder a Dashboard de Soberanos ARS",
+    cta: "Soberanos ARS",
     accent: "var(--lb-violet-compl)",
     fg: "#ffffff",
     tint: "color-mix(in srgb, var(--lb-violet-compl) 12%, transparent)",
@@ -60,7 +60,7 @@ const dashboards = [
     icon: Link2,
     title: "Dólar Linked",
     description: "Bonos en pesos ajustados por tipo de cambio oficial (A3500)",
-    cta: "Acceder a Dashboard de DLK",
+    cta: "Dólar Linked",
     accent: "var(--lb-green)",
     fg: "#14331f",
     tint: "color-mix(in srgb, var(--lb-green) 22%, transparent)",
@@ -103,7 +103,7 @@ export default function HomePage() {
       {/* Hero con degradado e identidad LB */}
       <div className="relative overflow-hidden lb-gradient text-white">
         <div className="absolute inset-0 lb-trama text-white/40" aria-hidden="true" />
-        <div className="relative max-w-6xl mx-auto px-4 pt-8 pb-20">
+        <div className="relative max-w-6xl mx-auto px-4 pt-8 pb-12">
           <div className="flex justify-between items-center gap-4">
             <LbLogo className="h-7 w-auto text-white" />
             <div className="flex gap-2">
@@ -150,7 +150,7 @@ export default function HomePage() {
       </div>
 
       {/* Dashboards */}
-      <div className="max-w-6xl mx-auto px-4 -mt-10 pb-16">
+      <div className="max-w-6xl mx-auto px-4 mt-8 pb-16">
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
           {dashboards.map((d) => {
             const Icon = d.icon
