@@ -44,6 +44,11 @@ const TYPE_LABEL: Record<string, string> = {
   DLK: "Dólar Linked",
 }
 
+function typeLabel(t: string | null | undefined) {
+  if (t && TYPE_LABEL[t]) return TYPE_LABEL[t]
+  return t || "Bono"
+}
+
 const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
 
 const nf = new Intl.NumberFormat("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
@@ -108,10 +113,13 @@ export default function CarteraPage() {
     ;(async () => {
       setLoadingInstr(true)
       try {
+        // Traemos todos los bonos activos (todo menos FX, que es el dólar y no tiene cupones).
+        // No filtramos por instrument_type porque los soberanos ARS no están tipados "ARS"
+        // (se identifican por moneda_pago), así que con .neq("FX") entran ON/HD/ARS/DLK.
         const { data, error } = await supabase
           .from("instruments_v2")
           .select("symbol, instrument_type, emisor, moneda_pago, lamina_min, vencimiento")
-          .in("instrument_type", ["ON", "HD", "ARS", "DLK"])
+          .or("instrument_type.neq.FX,instrument_type.is.null")
           .eq("is_active", true)
         if (!cancel && !error && data) {
           setInstruments(
@@ -292,7 +300,7 @@ export default function CarteraPage() {
                             <div className="flex items-center justify-between w-full gap-2">
                               <span className="font-medium">{i.symbol}</span>
                               <span className="text-xs text-muted-foreground truncate">
-                                {TYPE_LABEL[i.instrument_type] ?? i.instrument_type}
+                                {typeLabel(i.instrument_type)}
                                 {i.moneda_pago ? ` · ${normCurrency(i.moneda_pago)}` : ""}
                               </span>
                             </div>
@@ -320,7 +328,7 @@ export default function CarteraPage() {
                               <span className="font-semibold">{h.symbol}</span>
                               {i && (
                                 <Badge variant="secondary" className="text-[10px]">
-                                  {TYPE_LABEL[i.instrument_type] ?? i.instrument_type}
+                                  {typeLabel(i.instrument_type)}
                                 </Badge>
                               )}
                               {i?.moneda_pago && (
