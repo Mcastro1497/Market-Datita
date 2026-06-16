@@ -10,6 +10,7 @@ import {
   Link2,
   ListOrdered,
   Settings,
+  Wallet,
 } from "lucide-react"
 import {
   Sidebar,
@@ -34,7 +35,10 @@ const nav = [
   { href: "/todos-los-tickers", label: "Todos los tickers", icon: ListOrdered },
 ]
 
-const tools = [{ href: "/admin", label: "Administración", icon: Settings }]
+const tools = [
+  { href: "/cartera", label: "Cartera", icon: Wallet },
+  { href: "/admin", label: "Administración", icon: Settings },
+]
 
 export function AppSidebar() {
   const pathname = usePathname()
