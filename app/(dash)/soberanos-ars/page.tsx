@@ -7,8 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { createClient } from "@/lib/supabase/client"
 import type { SoberanoWithDetails } from "@/lib/types"
-import { Loader2, Home, TrendingUp, RefreshCw, PiggyBank } from "lucide-react"
-import Link from "next/link"
+import { Loader2, RefreshCw } from "lucide-react"
 import useSWR from "swr"
 
 const fetcher = async () => {
@@ -155,18 +154,13 @@ export default function SoberanosArsDashboard() {
   )
 
   return (
-    <div className="min-h-screen bg-muted p-4">
+    <div className="min-h-screen bg-background p-4">
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="bg-card rounded-lg shadow-sm border p-6">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Link href="/"><Button variant="outline" size="sm" className="flex items-center gap-2 bg-transparent"><Home className="h-4 w-4" />Inicio</Button></Link>
-              <Link href="/ons"><Button variant="outline" className="flex items-center gap-2 bg-transparent border-primary/30 text-primary hover:bg-primary/10"><TrendingUp className="h-4 w-4" />Dashboard ONs</Button></Link>
-              <Link href="/soberanos"><Button variant="outline" className="flex items-center gap-2 bg-transparent border-success/30 text-success hover:bg-success/10"><PiggyBank className="h-4 w-4" />Soberanos HD</Button></Link>
-              <div>
-                <h1 className="text-3xl font-bold text-foreground mb-2">Dashboard de Soberanos ARS</h1>
-                <p className="text-muted-foreground">Análisis y seguimiento de Soberanos en pesos argentinos</p>
-              </div>
+            <div>
+              <h1 className="text-3xl font-bold text-foreground mb-2">Dashboard de Soberanos ARS</h1>
+              <p className="text-muted-foreground">Análisis y seguimiento de Soberanos en pesos argentinos</p>
             </div>
             <Button onClick={() => mutate()} variant="outline" size="sm" className="flex items-center gap-2 bg-transparent" disabled={isLoading}>
               <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />Actualizar

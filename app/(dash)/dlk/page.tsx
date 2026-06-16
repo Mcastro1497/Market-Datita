@@ -6,8 +6,7 @@ import { DlkDetailsTable } from "@/components/dlk-details-table"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
 import type { DlkWithDetails } from "@/lib/types"
-import { Loader2, Home, TrendingUp, RefreshCw, PiggyBank, DollarSign, Link2 } from "lucide-react"
-import Link from "next/link"
+import { Loader2, RefreshCw } from "lucide-react"
 import useSWR from "swr"
 
 const FX_SYMBOL = "UST" // tipo de cambio oficial guardado en `prices`
@@ -163,15 +162,9 @@ export default function DlkDashboard() {
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="bg-card rounded-lg shadow-sm border p-6">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Link href="/"><Button variant="outline" size="sm" className="flex items-center gap-2 bg-transparent"><Home className="h-4 w-4" />Inicio</Button></Link>
-              <Link href="/ons"><Button variant="outline" className="flex items-center gap-2 bg-transparent border-primary/30 text-primary hover:bg-primary/10"><TrendingUp className="h-4 w-4" />Dashboard ONs</Button></Link>
-              <Link href="/soberanos"><Button variant="outline" className="flex items-center gap-2 bg-transparent border-success/30 text-success hover:bg-success/10"><DollarSign className="h-4 w-4" />Soberanos HD</Button></Link>
-              <Link href="/soberanos-ars"><Button variant="outline" className="flex items-center gap-2 bg-transparent border-lb-violet-compl/30 text-lb-violet-compl hover:bg-lb-violet-compl/10"><PiggyBank className="h-4 w-4" />Soberanos ARS</Button></Link>
-              <div>
-                <h1 className="text-3xl font-bold text-foreground mb-2">Dashboard de Dólar Linked</h1>
-                <p className="text-muted-foreground">Bonos en pesos ajustados por tipo de cambio oficial (A3500)</p>
-              </div>
+            <div>
+              <h1 className="text-3xl font-bold text-foreground mb-2">Dashboard de Dólar Linked</h1>
+              <p className="text-muted-foreground">Bonos en pesos ajustados por tipo de cambio oficial (A3500)</p>
             </div>
             <Button onClick={() => mutate()} variant="outline" size="sm" className="flex items-center gap-2 bg-transparent" disabled={isLoading}>
               <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />Actualizar

@@ -10,8 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
 import type { ONWithDetails } from "@/lib/types"
-import { Loader2, Settings, ArrowLeft, Home, RefreshCw } from "lucide-react"
-import Link from "next/link"
+import { Loader2, RefreshCw } from "lucide-react"
 import useSWR from "swr"
 
 const fetcher = async () => {
@@ -192,16 +191,11 @@ export default function ONSDashboard() {
       <div className="max-w-7xl mx-auto space-y-6">
         <div className="bg-card rounded-lg shadow-sm border p-6">
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Link href="/"><Button variant="outline" size="sm" className="flex items-center gap-2 bg-transparent"><Home className="h-4 w-4" />Inicio</Button></Link>
-              <div>
-                <h1 className="text-3xl font-bold text-foreground mb-2">Dashboard de ONs</h1>
-                <p className="text-muted-foreground">Análisis y seguimiento de flujos de Obligaciones Negociables</p>
-              </div>
+            <div>
+              <h1 className="text-3xl font-bold text-foreground mb-2">Dashboard de ONs</h1>
+              <p className="text-muted-foreground">Análisis y seguimiento de flujos de Obligaciones Negociables</p>
             </div>
             <div className="flex items-center gap-3">
-              <Link href="/soberanos"><Button variant="outline" className="flex items-center gap-2 bg-transparent border-lb-violet-accent/30 text-lb-violet-accent hover:bg-lb-violet-accent/10"><ArrowLeft className="h-4 w-4" />Soberanos HD</Button></Link>
-              <Link href="/admin"><Button variant="outline" className="flex items-center gap-2 bg-transparent"><Settings className="h-4 w-4" />Administración</Button></Link>
               <Button onClick={() => mutate()} variant="outline" size="sm" className="flex items-center gap-2 bg-transparent" disabled={isLoading}>
                 <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />Actualizar
               </Button>

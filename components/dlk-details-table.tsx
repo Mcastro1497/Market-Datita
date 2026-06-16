@@ -303,19 +303,19 @@ export function DlkDetailsTable({ flows, fxOficial }: DlkDetailsTableProps) {
                 </TableCell>
                 <TableCell className="text-center">{formatPercentage(flow.lastPrice?.ytm ?? null)}</TableCell>
                 <TableCell className="text-center">{formatDuration(flow.lastPrice?.duration_y ?? null)}</TableCell>
-                <TableCell className="text-center bg-destructive/10">
+                <TableCell className="text-center bg-muted/50">
                   {(() => {
                     const d = parseLocalISODate(flow.details?.vencimiento || null)
                     return d ? new Intl.DateTimeFormat("es-AR").format(d) : ""
                   })()}
                 </TableCell>
-                <TableCell className="text-center bg-destructive/10">{flow.details?.legislacion || ""}</TableCell>
-                <TableCell className="text-center bg-destructive/10">{flow.details?.jurisdiccion_pago || ""}</TableCell>
-                <TableCell className="text-center bg-destructive/10">{formatPercentage(flow.cupon)}</TableCell>
-                <TableCell className="text-center bg-destructive/10">
+                <TableCell className="text-center bg-muted/50">{flow.details?.legislacion || ""}</TableCell>
+                <TableCell className="text-center bg-muted/50">{flow.details?.jurisdiccion_pago || ""}</TableCell>
+                <TableCell className="text-center bg-muted/50">{formatPercentage(flow.cupon)}</TableCell>
+                <TableCell className="text-center bg-muted/50">
                   {formatAmount(flow.details?.lamina_min ?? null)}
                 </TableCell>
-                <TableCell className="text-center bg-destructive/10">
+                <TableCell className="text-center bg-muted/50">
                   {flow.details?.callable !== undefined && flow.details?.callable !== null ? (
                     <Badge variant={flow.details.callable ? "default" : "secondary"}>
                       {flow.details.callable ? "Sí" : "No"}
@@ -324,7 +324,7 @@ export function DlkDetailsTable({ flows, fxOficial }: DlkDetailsTableProps) {
                     ""
                   )}
                 </TableCell>
-                <TableCell className="text-center bg-destructive/10">
+                <TableCell className="text-center bg-muted/50">
                   {formatAmount(flow.details?.vr_vigente ?? null)}
                 </TableCell>
               </TableRow>
