@@ -157,7 +157,7 @@ export function SoberanosDetailsTable({ flows }: SoberanosDetailsTableProps) {
                   <TableCell className="text-center font-medium">{flow.ticker}</TableCell>
                   <TableCell className="text-center tabular-nums">{formatCurrency(flow.lastPrice?.last)}</TableCell>
                   <TableCell className="text-center tabular-nums">
-                    <span className={chg && chg > 0 ? "text-green-600" : chg && chg < 0 ? "text-red-600" : "text-muted-foreground"}>
+                    <span className={chg && chg > 0 ? "text-success" : chg && chg < 0 ? "text-destructive" : "text-muted-foreground"}>
                       {formatPercentage(chg)}
                     </span>
                   </TableCell>

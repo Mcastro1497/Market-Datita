@@ -86,7 +86,7 @@ export function AllTickersTable() {
         </CardHeader>
         <CardContent>
           <div className="flex items-center justify-center h-32">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
           </div>
         </CardContent>
       </Card>
@@ -104,7 +104,7 @@ export function AllTickersTable() {
 
         <div className="flex gap-4 mt-4">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
             <Input
               placeholder="Buscar por ticker, legislación o sector..."
               value={searchTerm}
@@ -144,7 +144,7 @@ export function AllTickersTable() {
             <TableBody>
               {filteredTickers.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-8 text-gray-500">
+                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
                     No se encontraron instrumentos
                   </TableCell>
                 </TableRow>
@@ -186,7 +186,7 @@ export function AllTickersTable() {
           </Table>
         </div>
 
-        <div className="mt-4 text-sm text-gray-600">
+        <div className="mt-4 text-sm text-muted-foreground">
           Mostrando {filteredTickers.length} de {tickers.length} instrumentos
         </div>
       </CardContent>

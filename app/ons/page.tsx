@@ -181,26 +181,26 @@ export default function ONSDashboard() {
   if (error) return (
     <div className="min-h-screen flex items-center justify-center">
       <div className="text-center">
-        <p className="text-red-600 mb-4">Error al cargar los datos</p>
+        <p className="text-destructive mb-4">Error al cargar los datos</p>
         <Button onClick={() => mutate()}>Reintentar</Button>
       </div>
     </div>
   )
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4">
+    <div className="min-h-screen bg-background p-4">
       <div className="max-w-7xl mx-auto space-y-6">
-        <div className="bg-white rounded-lg shadow-sm border p-6">
+        <div className="bg-card rounded-lg shadow-sm border p-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Link href="/"><Button variant="outline" size="sm" className="flex items-center gap-2 bg-transparent"><Home className="h-4 w-4" />Inicio</Button></Link>
               <div>
-                <h1 className="text-3xl font-bold text-slate-900 mb-2">Dashboard de ONs</h1>
-                <p className="text-slate-600">Análisis y seguimiento de flujos de Obligaciones Negociables</p>
+                <h1 className="text-3xl font-bold text-foreground mb-2">Dashboard de ONs</h1>
+                <p className="text-muted-foreground">Análisis y seguimiento de flujos de Obligaciones Negociables</p>
               </div>
             </div>
             <div className="flex items-center gap-3">
-              <Link href="/soberanos"><Button variant="outline" className="flex items-center gap-2 bg-transparent border-green-200 text-green-700 hover:bg-green-50"><ArrowLeft className="h-4 w-4" />Soberanos HD</Button></Link>
+              <Link href="/soberanos"><Button variant="outline" className="flex items-center gap-2 bg-transparent border-lb-violet-accent/30 text-lb-violet-accent hover:bg-lb-violet-accent/10"><ArrowLeft className="h-4 w-4" />Soberanos HD</Button></Link>
               <Link href="/admin"><Button variant="outline" className="flex items-center gap-2 bg-transparent"><Settings className="h-4 w-4" />Administración</Button></Link>
               <Button onClick={() => mutate()} variant="outline" size="sm" className="flex items-center gap-2 bg-transparent" disabled={isLoading}>
                 <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />Actualizar

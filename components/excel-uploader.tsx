@@ -190,17 +190,17 @@ export function ExcelUploader({ onUploadComplete }: ExcelUploaderProps) {
         <div
           {...getRootProps()}
           className={`border-2 border-dashed rounded-lg p-8 text-center cursor-pointer transition-colors ${
-            isDragActive ? "border-blue-500 bg-blue-50" : "border-gray-300 hover:border-gray-400"
+            isDragActive ? "border-primary/30 bg-primary/10" : "border-border hover:border-ring"
           } ${uploading ? "opacity-50 cursor-not-allowed" : ""}`}
         >
           <input {...getInputProps()} />
-          <Upload className="mx-auto h-12 w-12 text-gray-400 mb-4" />
+          <Upload className="mx-auto h-12 w-12 text-muted-foreground mb-4" />
           {isDragActive ? (
-            <p className="text-blue-600">Suelta el archivo aquí...</p>
+            <p className="text-primary">Suelta el archivo aquí...</p>
           ) : (
             <div>
-              <p className="text-gray-600 mb-2">Arrastra tu archivo Excel aquí, o haz clic para seleccionar</p>
-              <p className="text-sm text-gray-500">Formatos soportados: .xlsx, .xls</p>
+              <p className="text-muted-foreground mb-2">Arrastra tu archivo Excel aquí, o haz clic para seleccionar</p>
+              <p className="text-sm text-muted-foreground">Formatos soportados: .xlsx, .xls</p>
             </div>
           )}
         </div>
@@ -208,18 +208,18 @@ export function ExcelUploader({ onUploadComplete }: ExcelUploaderProps) {
         {uploading && (
           <div className="mt-4">
             <Progress value={progress} className="w-full" />
-            <p className="text-sm text-gray-600 mt-2">Procesando archivo...</p>
+            <p className="text-sm text-muted-foreground mt-2">Procesando archivo...</p>
           </div>
         )}
 
         {message && (
-          <Alert className={`mt-4 ${message.type === "error" ? "border-red-200" : "border-green-200"}`}>
+          <Alert className={`mt-4 ${message.type === "error" ? "border-destructive/30" : "border-success/30"}`}>
             {message.type === "success" ? (
-              <CheckCircle className="h-4 w-4 text-green-600" />
+              <CheckCircle className="h-4 w-4 text-success" />
             ) : (
-              <AlertCircle className="h-4 w-4 text-red-600" />
+              <AlertCircle className="h-4 w-4 text-destructive" />
             )}
-            <AlertDescription className={message.type === "error" ? "text-red-700" : "text-green-700"}>
+            <AlertDescription className={message.type === "error" ? "text-destructive" : "text-success"}>
               {message.text}
             </AlertDescription>
           </Alert>

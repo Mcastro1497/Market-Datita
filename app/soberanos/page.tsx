@@ -144,21 +144,21 @@ export default function SoberanosDashboard() {
 
   if (error) return (
     <div className="min-h-screen flex items-center justify-center">
-      <div className="text-center"><p className="text-red-600 mb-4">Error al cargar los datos</p><Button onClick={() => mutate()}>Reintentar</Button></div>
+      <div className="text-center"><p className="text-destructive mb-4">Error al cargar los datos</p><Button onClick={() => mutate()}>Reintentar</Button></div>
     </div>
   )
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4">
+    <div className="min-h-screen bg-background p-4">
       <div className="max-w-7xl mx-auto space-y-6">
-        <div className="bg-white rounded-lg shadow-sm border p-6">
+        <div className="bg-card rounded-lg shadow-sm border p-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Link href="/"><Button variant="outline" size="sm" className="flex items-center gap-2 bg-transparent"><Home className="h-4 w-4" />Inicio</Button></Link>
-              <Link href="/ons"><Button variant="outline" className="flex items-center gap-2 bg-transparent border-blue-200 text-blue-700 hover:bg-blue-50"><TrendingUp className="h-4 w-4" />Dashboard ONs</Button></Link>
+              <Link href="/ons"><Button variant="outline" className="flex items-center gap-2 bg-transparent border-primary/30 text-primary hover:bg-primary/10"><TrendingUp className="h-4 w-4" />Dashboard ONs</Button></Link>
               <div>
-                <h1 className="text-3xl font-bold text-slate-900 mb-2">Dashboard de Soberanos Hard Dollar</h1>
-                <p className="text-slate-600">Análisis y seguimiento de Soberanos en dólares estadounidenses</p>
+                <h1 className="text-3xl font-bold text-foreground mb-2">Dashboard de Soberanos Hard Dollar</h1>
+                <p className="text-muted-foreground">Análisis y seguimiento de Soberanos en dólares estadounidenses</p>
               </div>
             </div>
             <Button onClick={() => mutate()} variant="outline" size="sm" className="flex items-center gap-2 bg-transparent" disabled={isLoading}>

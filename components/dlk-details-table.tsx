@@ -141,12 +141,12 @@ export function DlkDetailsTable({ flows, fxOficial }: DlkDetailsTableProps) {
   return (
     <div className="space-y-4">
       {/* Header con info del tipo Dólar Linked */}
-      <div className="bg-gradient-to-r from-purple-50 to-violet-50 border border-purple-200 rounded-lg p-4">
+      <div className="bg-lb-violet-accent/10 border border-lb-violet-accent/30 rounded-lg p-4">
         <div className="flex items-center gap-2 mb-2">
-          <Link2 className="h-5 w-5 text-purple-600" />
-          <h3 className="font-semibold text-purple-800">Bonos Dólar Linked</h3>
+          <Link2 className="h-5 w-5 text-lb-violet-accent" />
+          <h3 className="font-semibold text-lb-violet-accent">Bonos Dólar Linked</h3>
         </div>
-        <p className="text-sm text-purple-700">
+        <p className="text-sm text-lb-violet-accent">
           Bonos en pesos ajustados por el tipo de cambio oficial. La TIR se calcula en USD dividiendo el precio en ARS
           por el FX oficial (A3500) que se obtiene de MAE.
         </p>
@@ -155,7 +155,7 @@ export function DlkDetailsTable({ flows, fxOficial }: DlkDetailsTableProps) {
       {/* Filtros básicos */}
       <div className="flex gap-4 items-center">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground/70 h-4 w-4" />
           <Input
             placeholder="Buscar por ticker o emisor..."
             value={searchTerm}
@@ -285,17 +285,17 @@ export function DlkDetailsTable({ flows, fxOficial }: DlkDetailsTableProps) {
                 <TableCell className="text-center">{flow.emisor}</TableCell>
                 <TableCell className="text-center font-medium">{flow.ticker}</TableCell>
                 <TableCell className="text-center">{formatArs(flow.lastPrice?.price_ars ?? flow.lastPrice?.last ?? null)}</TableCell>
-                <TableCell className="text-center font-medium text-purple-700">
+                <TableCell className="text-center font-medium text-lb-violet-accent">
                   {formatUsd(flow.lastPrice?.price_usd ?? null)}
                 </TableCell>
                 <TableCell className="text-center">
                   <span
                     className={`${
                       flow.lastPrice?.change && flow.lastPrice.change > 0
-                        ? "text-green-600"
+                        ? "text-success"
                         : flow.lastPrice?.change && flow.lastPrice.change < 0
-                        ? "text-red-600"
-                        : "text-gray-600"
+                        ? "text-destructive"
+                        : "text-muted-foreground"
                     }`}
                   >
                     {formatPercentage(flow.lastPrice?.change ?? null)}
@@ -303,19 +303,19 @@ export function DlkDetailsTable({ flows, fxOficial }: DlkDetailsTableProps) {
                 </TableCell>
                 <TableCell className="text-center">{formatPercentage(flow.lastPrice?.ytm ?? null)}</TableCell>
                 <TableCell className="text-center">{formatDuration(flow.lastPrice?.duration_y ?? null)}</TableCell>
-                <TableCell className="text-center bg-rose-50">
+                <TableCell className="text-center bg-destructive/10">
                   {(() => {
                     const d = parseLocalISODate(flow.details?.vencimiento || null)
                     return d ? new Intl.DateTimeFormat("es-AR").format(d) : ""
                   })()}
                 </TableCell>
-                <TableCell className="text-center bg-rose-50">{flow.details?.legislacion || ""}</TableCell>
-                <TableCell className="text-center bg-rose-50">{flow.details?.jurisdiccion_pago || ""}</TableCell>
-                <TableCell className="text-center bg-rose-50">{formatPercentage(flow.cupon)}</TableCell>
-                <TableCell className="text-center bg-rose-50">
+                <TableCell className="text-center bg-destructive/10">{flow.details?.legislacion || ""}</TableCell>
+                <TableCell className="text-center bg-destructive/10">{flow.details?.jurisdiccion_pago || ""}</TableCell>
+                <TableCell className="text-center bg-destructive/10">{formatPercentage(flow.cupon)}</TableCell>
+                <TableCell className="text-center bg-destructive/10">
                   {formatAmount(flow.details?.lamina_min ?? null)}
                 </TableCell>
-                <TableCell className="text-center bg-rose-50">
+                <TableCell className="text-center bg-destructive/10">
                   {flow.details?.callable !== undefined && flow.details?.callable !== null ? (
                     <Badge variant={flow.details.callable ? "default" : "secondary"}>
                       {flow.details.callable ? "Sí" : "No"}
@@ -324,7 +324,7 @@ export function DlkDetailsTable({ flows, fxOficial }: DlkDetailsTableProps) {
                     ""
                   )}
                 </TableCell>
-                <TableCell className="text-center bg-rose-50">
+                <TableCell className="text-center bg-destructive/10">
                   {formatAmount(flow.details?.vr_vigente ?? null)}
                 </TableCell>
               </TableRow>

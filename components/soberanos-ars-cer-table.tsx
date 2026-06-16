@@ -146,19 +146,19 @@ export function SoberanosArsCerTable({ flows, activeTab }: SoberanosArsCerTableP
 
   return (
     <div className="space-y-4">
-      <div className="bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-lg p-4">
+      <div className="bg-primary/10 border border-primary/30 rounded-lg p-4">
         <div className="flex items-center gap-2 mb-2">
-          <PiggyBank className="h-5 w-5 text-orange-600" />
-          <h3 className="font-semibold text-orange-800">Soberanos ARS</h3>
+          <PiggyBank className="h-5 w-5 text-primary" />
+          <h3 className="font-semibold text-foreground">Soberanos ARS</h3>
         </div>
-        <p className="text-sm text-orange-700">
+        <p className="text-sm text-muted-foreground">
           Bonos soberanos denominados en pesos argentinos. Todos los valores están expresados en ARS.
         </p>
       </div>
 
       <div className="flex gap-4 items-center">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
           <Input
             placeholder="Buscar por ticker o emisor..."
             value={searchTerm}
@@ -318,10 +318,10 @@ export function SoberanosArsCerTable({ flows, activeTab }: SoberanosArsCerTableP
                   <span
                     className={`${
                       flow.lastPrice?.change && flow.lastPrice.change > 0
-                        ? "text-green-600"
+                        ? "text-success"
                         : flow.lastPrice?.change && flow.lastPrice.change < 0
-                        ? "text-red-600"
-                        : "text-gray-600"
+                        ? "text-destructive"
+                        : "text-muted-foreground"
                     }`}
                   >
                     {formatPercentage(flow.lastPrice?.change)}

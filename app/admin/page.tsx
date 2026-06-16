@@ -44,11 +44,11 @@ export default function AdminPage() {
 
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
         <Card className="w-full max-w-md">
           <CardHeader className="text-center">
-            <div className="mx-auto w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mb-4">
-              <Shield className="h-6 w-6 text-blue-600" />
+            <div className="mx-auto w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mb-4">
+              <Shield className="h-6 w-6 text-primary" />
             </div>
             <CardTitle>Acceso de Administrador</CardTitle>
           </CardHeader>
@@ -65,8 +65,8 @@ export default function AdminPage() {
                   onChange={e => setPassword(e.target.value)} placeholder="Contraseña" required />
               </div>
               {error && (
-                <Alert className="border-red-200">
-                  <AlertDescription className="text-red-700">{error}</AlertDescription>
+                <Alert className="border-destructive/30">
+                  <AlertDescription className="text-destructive">{error}</AlertDescription>
                 </Alert>
               )}
               <Button type="submit" className="w-full">Iniciar Sesión</Button>
@@ -78,13 +78,13 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4">
+    <div className="min-h-screen bg-background p-4">
       <div className="max-w-4xl mx-auto space-y-6">
 
-        <div className="bg-white rounded-lg shadow-sm border p-6 flex items-center justify-between">
+        <div className="bg-card rounded-lg shadow-sm border p-6 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-slate-900 mb-1">Panel de Administración</h1>
-            <p className="text-slate-600">Carga de datos desde Excel</p>
+            <h1 className="text-3xl font-bold text-foreground mb-1">Panel de Administración</h1>
+            <p className="text-muted-foreground">Carga de datos desde Excel</p>
           </div>
           <Button onClick={handleLogout} variant="outline" className="flex items-center gap-2 bg-transparent">
             <LogOut className="h-4 w-4" />Cerrar Sesión

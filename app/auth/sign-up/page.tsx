@@ -57,7 +57,7 @@ export default function SignUpPage() {
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="w-full max-w-md">
           <CardHeader>
-            <CardTitle className="text-2xl font-bold text-center text-green-600">¡Cuenta Creada!</CardTitle>
+            <CardTitle className="text-2xl font-bold text-center text-success">¡Cuenta Creada!</CardTitle>
           </CardHeader>
           <CardContent className="text-center space-y-4">
             <p className="text-muted-foreground">

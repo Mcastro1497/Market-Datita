@@ -15,7 +15,7 @@ export default function TodosLosTickersPage() {
         </Link>
         <div>
           <h1 className="text-3xl font-bold">Todos los Tickers</h1>
-          <p className="text-gray-600">Vista consolidada de ONs, Soberanos Hard Dollar y Soberanos ARS</p>
+          <p className="text-muted-foreground">Vista consolidada de ONs, Soberanos Hard Dollar y Soberanos ARS</p>
         </div>
       </div>
 

@@ -151,7 +151,7 @@ export default function DlkDashboard() {
 
   if (error) return (
     <div className="min-h-screen flex items-center justify-center">
-      <div className="text-center"><p className="text-red-600 mb-4">Error al cargar los datos</p><Button onClick={() => mutate()}>Reintentar</Button></div>
+      <div className="text-center"><p className="text-destructive mb-4">Error al cargar los datos</p><Button onClick={() => mutate()}>Reintentar</Button></div>
     </div>
   )
 
@@ -159,18 +159,18 @@ export default function DlkDashboard() {
     v == null ? "—" : new Intl.NumberFormat("es-AR", { minimumFractionDigits: 4, maximumFractionDigits: 4 }).format(v)
 
   return (
-    <div className="min-h-screen bg-slate-50 p-4">
+    <div className="min-h-screen bg-background p-4">
       <div className="max-w-7xl mx-auto space-y-6">
-        <div className="bg-white rounded-lg shadow-sm border p-6">
+        <div className="bg-card rounded-lg shadow-sm border p-6">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
               <Link href="/"><Button variant="outline" size="sm" className="flex items-center gap-2 bg-transparent"><Home className="h-4 w-4" />Inicio</Button></Link>
-              <Link href="/ons"><Button variant="outline" className="flex items-center gap-2 bg-transparent border-blue-200 text-blue-700 hover:bg-blue-50"><TrendingUp className="h-4 w-4" />Dashboard ONs</Button></Link>
-              <Link href="/soberanos"><Button variant="outline" className="flex items-center gap-2 bg-transparent border-green-200 text-green-700 hover:bg-green-50"><DollarSign className="h-4 w-4" />Soberanos HD</Button></Link>
-              <Link href="/soberanos-ars"><Button variant="outline" className="flex items-center gap-2 bg-transparent border-orange-200 text-orange-700 hover:bg-orange-50"><PiggyBank className="h-4 w-4" />Soberanos ARS</Button></Link>
+              <Link href="/ons"><Button variant="outline" className="flex items-center gap-2 bg-transparent border-primary/30 text-primary hover:bg-primary/10"><TrendingUp className="h-4 w-4" />Dashboard ONs</Button></Link>
+              <Link href="/soberanos"><Button variant="outline" className="flex items-center gap-2 bg-transparent border-success/30 text-success hover:bg-success/10"><DollarSign className="h-4 w-4" />Soberanos HD</Button></Link>
+              <Link href="/soberanos-ars"><Button variant="outline" className="flex items-center gap-2 bg-transparent border-lb-violet-compl/30 text-lb-violet-compl hover:bg-lb-violet-compl/10"><PiggyBank className="h-4 w-4" />Soberanos ARS</Button></Link>
               <div>
-                <h1 className="text-3xl font-bold text-slate-900 mb-2">Dashboard de Dólar Linked</h1>
-                <p className="text-slate-600">Bonos en pesos ajustados por tipo de cambio oficial (A3500)</p>
+                <h1 className="text-3xl font-bold text-foreground mb-2">Dashboard de Dólar Linked</h1>
+                <p className="text-muted-foreground">Bonos en pesos ajustados por tipo de cambio oficial (A3500)</p>
               </div>
             </div>
             <Button onClick={() => mutate()} variant="outline" size="sm" className="flex items-center gap-2 bg-transparent" disabled={isLoading}>
@@ -179,12 +179,12 @@ export default function DlkDashboard() {
           </div>
 
           {/* Banner del FX oficial */}
-          <div className="mt-4 flex items-center gap-3 bg-purple-50 border border-purple-200 rounded-md px-4 py-2 text-sm">
-            <Link2 className="h-4 w-4 text-purple-600" />
-            <span className="text-purple-800 font-medium">Dólar oficial (MAE A3500):</span>
-            <span className="font-mono text-purple-900">${formatFx(data?.fxOficial ?? null)}</span>
+          <div className="mt-4 flex items-center gap-3 bg-lb-violet-accent/10 border border-lb-violet-accent/30 rounded-md px-4 py-2 text-sm">
+            <Link2 className="h-4 w-4 text-lb-violet-accent" />
+            <span className="text-lb-violet-accent font-medium">Dólar oficial (MAE A3500):</span>
+            <span className="font-mono text-lb-violet-accent">${formatFx(data?.fxOficial ?? null)}</span>
             {data?.fxTs && (
-              <span className="text-purple-600 text-xs ml-auto">
+              <span className="text-lb-violet-accent text-xs ml-auto">
                 Última actualización: {new Date(data.fxTs).toLocaleString("es-AR")}
               </span>
             )}

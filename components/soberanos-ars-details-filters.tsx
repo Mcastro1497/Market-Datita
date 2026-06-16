@@ -140,7 +140,7 @@ export function SoberanosArsDetailsFilters({ monedas, emisores, onFiltersChange 
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <PiggyBank className="h-5 w-5 text-orange-600" />
+          <PiggyBank className="h-5 w-5 text-lb-violet-compl" />
           Filtros - Soberanos ARS
         </CardTitle>
       </CardHeader>
