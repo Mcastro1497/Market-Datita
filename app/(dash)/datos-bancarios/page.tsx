@@ -61,6 +61,19 @@ function tna30(teaPct: unknown): number | null {
   return (Math.pow(1 + tea, 30 / 365) - 1) * (365 / 30) * 100
 }
 const esHomeBanking = (r: Row) => String(r.canalConstitucion ?? "").toLowerCase().includes("home banking")
+const fmtFecha = (v: unknown) => {
+  const s = String(v ?? "")
+  if (!/^\d{4}-\d{2}-\d{2}/.test(s)) return "—"
+  const [y, m, d] = s.slice(0, 10).split("-")
+  return `${d}/${m}/${y}`
+}
+const COL_FECHA: Col = {
+  key: "fechaInformacion",
+  label: "Actualizado",
+  align: "right",
+  fmt: (v) => fmtFecha(v),
+  sortVal: (r) => String(r.fechaInformacion ?? ""),
+}
 
 const COL_BANCO: Col = { key: "_banco", label: "Banco", fmt: (_v, r) => banco(r), sortVal: (r) => banco(r) }
 
@@ -71,8 +84,8 @@ type ProductoDef = {
   cols: Col[]
   defaultSort: { key: string; dir: Dir }
   filter?: (r: Row) => boolean
-  /** Si se setea, deja una sola fila por banco: la de mayor valor en este campo. */
-  onePerBank?: string
+  /** Si se setea, deja una sola fila por banco: la mejor según este campo y dirección. */
+  onePerBank?: { key: string; dir: "max" | "min" }
 }
 
 const PRODUCTOS: ProductoDef[] = [
@@ -81,19 +94,21 @@ const PRODUCTOS: ProductoDef[] = [
     label: "Plazos fijos",
     descripcion: "Plazo fijo online (Home banking) — mejor tasa por banco · TNA 30 días y TEA",
     filter: esHomeBanking,
-    onePerBank: "tasaEfectivaAnualMinima",
+    onePerBank: { key: "tasaEfectivaAnualMinima", dir: "max" },
     cols: [
       COL_BANCO,
       { key: "nombreCorto", label: "Producto" },
       { key: "_tna", label: "TNA (30d)", align: "right", fmt: (_v, r) => pct(tna30(r.tasaEfectivaAnualMinima)), sortVal: (r) => tna30(r.tasaEfectivaAnualMinima) ?? -1 },
       { key: "tasaEfectivaAnualMinima", label: "TEA", align: "right", fmt: pct, sortVal: (r) => Number(r.tasaEfectivaAnualMinima ?? -1) },
+      COL_FECHA,
     ],
     defaultSort: { key: "tasaEfectivaAnualMinima", dir: "desc" },
   },
   {
     value: "personales",
     label: "Préstamos personales",
-    descripcion: "TEA y costo financiero total (CFT) — menor es mejor",
+    descripcion: "Mejor TEA por banco — costo financiero total (CFT) · menor es mejor",
+    onePerBank: { key: "tasaEfectivaAnualMaxima", dir: "min" },
     cols: [
       COL_BANCO,
       { key: "nombreCorto", label: "Producto" },
@@ -102,13 +117,15 @@ const PRODUCTOS: ProductoDef[] = [
       { key: "costoFinancieroEfectivoTotalMaximo", label: "CFT máx.", align: "right", fmt: pct, sortVal: (r) => Number(r.costoFinancieroEfectivoTotalMaximo ?? 1e9) },
       { key: "montoMaximoOtorgable", label: "Monto máx.", align: "right", fmt: (v) => money(v), sortVal: (r) => Number(r.montoMaximoOtorgable ?? 0) },
       { key: "plazoMaximoOtorgable", label: "Plazo máx. (m)", align: "right", fmt: (v) => (v == null ? "—" : String(v)), sortVal: (r) => Number(r.plazoMaximoOtorgable ?? 0) },
+      COL_FECHA,
     ],
     defaultSort: { key: "tasaEfectivaAnualMaxima", dir: "asc" },
   },
   {
     value: "hipotecarios",
     label: "Hipotecarios",
-    descripcion: "Créditos para vivienda — TEA, CFT y relación cuota/ingreso",
+    descripcion: "Mejor TEA por banco — vivienda · CFT y relación cuota/ingreso",
+    onePerBank: { key: "tasaEfectivaAnualMaxima", dir: "min" },
     cols: [
       COL_BANCO,
       { key: "nombreCorto", label: "Producto" },
@@ -117,13 +134,15 @@ const PRODUCTOS: ProductoDef[] = [
       { key: "costoFinancieroEfectivoTotalMaximo", label: "CFT máx.", align: "right", fmt: pct, sortVal: (r) => Number(r.costoFinancieroEfectivoTotalMaximo ?? 1e9) },
       { key: "relacionCuotaIngreso", label: "Cuota/ingreso", align: "right", fmt: pct, sortVal: (r) => Number(r.relacionCuotaIngreso ?? 0) },
       { key: "plazoMaximoOtorgable", label: "Plazo máx. (m)", align: "right", fmt: (v) => (v == null ? "—" : String(v)), sortVal: (r) => Number(r.plazoMaximoOtorgable ?? 0) },
+      COL_FECHA,
     ],
     defaultSort: { key: "tasaEfectivaAnualMaxima", dir: "asc" },
   },
   {
     value: "prendarios",
     label: "Prendarios",
-    descripcion: "Créditos prendarios (autos) — TEA, CFT y montos",
+    descripcion: "Mejor TEA por banco — autos · CFT y montos",
+    onePerBank: { key: "tasaEfectivaAnualMaxima", dir: "min" },
     cols: [
       COL_BANCO,
       { key: "nombreCorto", label: "Producto" },
@@ -132,13 +151,15 @@ const PRODUCTOS: ProductoDef[] = [
       { key: "costoFinancieroEfectivoTotalMaximo", label: "CFT máx.", align: "right", fmt: pct, sortVal: (r) => Number(r.costoFinancieroEfectivoTotalMaximo ?? 1e9) },
       { key: "montoMaximoOtorgable", label: "Monto máx.", align: "right", fmt: (v) => money(v), sortVal: (r) => Number(r.montoMaximoOtorgable ?? 0) },
       { key: "plazoMaximoOtorgable", label: "Plazo máx. (m)", align: "right", fmt: (v) => (v == null ? "—" : String(v)), sortVal: (r) => Number(r.plazoMaximoOtorgable ?? 0) },
+      COL_FECHA,
     ],
     defaultSort: { key: "tasaEfectivaAnualMaxima", dir: "asc" },
   },
   {
     value: "tarjetas",
     label: "Tarjetas",
-    descripcion: "Tarjetas de crédito — TEA de financiación y adelanto",
+    descripcion: "Mejor TEA de financiación por banco — y TEA de adelanto",
+    onePerBank: { key: "tasaEfectivaAnualMaximaFinanciacion", dir: "min" },
     cols: [
       COL_BANCO,
       { key: "nombreCorto", label: "Tarjeta" },
@@ -146,6 +167,7 @@ const PRODUCTOS: ProductoDef[] = [
       { key: "tasaEfectivaAnualMaximaAdelantoEfectivo", label: "TEA adelanto", align: "right", fmt: pct, sortVal: (r) => Number(r.tasaEfectivaAnualMaximaAdelantoEfectivo ?? 1e9) },
       { key: "comisionMaximaAdministracionMantenimiento", label: "Mantenim.", align: "right", fmt: (v) => money(v), sortVal: (r) => Number(r.comisionMaximaAdministracionMantenimiento ?? 0) },
       { key: "segmento", label: "Segmento" },
+      COL_FECHA,
     ],
     defaultSort: { key: "tasaEfectivaAnualMaximaFinanciacion", dir: "asc" },
   },
@@ -297,12 +319,17 @@ function ProductoTabla({
 
     // Colapsa a una fila por banco (la de mejor tasa) cuando corresponde
     if (def.onePerBank) {
+      const { key, dir } = def.onePerBank
+      const score = (r: Row) => {
+        const n = Number(r[key])
+        return Number.isFinite(n) ? n : dir === "max" ? -Infinity : Infinity
+      }
       const mejor = new Map<number, Row>()
       for (const r of filtered) {
         const code = Number(r.codigoEntidad)
-        const v = Number(r[def.onePerBank!] ?? -Infinity)
         const cur = mejor.get(code)
-        if (!cur || v > Number(cur[def.onePerBank!] ?? -Infinity)) mejor.set(code, r)
+        if (!cur) mejor.set(code, r)
+        else if (dir === "max" ? score(r) > score(cur) : score(r) < score(cur)) mejor.set(code, r)
       }
       filtered = Array.from(mejor.values())
     }
