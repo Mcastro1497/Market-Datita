@@ -13,6 +13,7 @@ import {
   Wallet,
   HandCoins,
   LineChart,
+  Landmark,
 } from "lucide-react"
 import {
   Sidebar,
@@ -36,6 +37,7 @@ const nav = [
   { href: "/dlk", label: "Dólar Linked", icon: Link2 },
   { href: "/todos-los-tickers", label: "Todos los tickers", icon: ListOrdered },
   { href: "/macro", label: "Macro", icon: LineChart },
+  { href: "/datos-bancarios", label: "Datos bancarios", icon: Landmark },
 ]
 
 const tools = [
