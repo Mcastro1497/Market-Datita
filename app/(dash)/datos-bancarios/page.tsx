@@ -71,14 +71,17 @@ type ProductoDef = {
   cols: Col[]
   defaultSort: { key: string; dir: Dir }
   filter?: (r: Row) => boolean
+  /** Si se setea, deja una sola fila por banco: la de mayor valor en este campo. */
+  onePerBank?: string
 }
 
 const PRODUCTOS: ProductoDef[] = [
   {
     value: "plazos",
     label: "Plazos fijos",
-    descripcion: "Plazo fijo online (Home banking) — TNA 30 días y TEA, mayor es mejor",
+    descripcion: "Plazo fijo online (Home banking) — mejor tasa por banco · TNA 30 días y TEA",
     filter: esHomeBanking,
+    onePerBank: "tasaEfectivaAnualMinima",
     cols: [
       COL_BANCO,
       { key: "nombreCorto", label: "Producto" },
@@ -275,13 +278,35 @@ function ProductoTabla({
   const sorted = useMemo(() => {
     if (!rows) return []
     const q = query.trim().toLowerCase()
-    const filtered = rows.filter((r) => {
+    let filtered = rows.filter((r) => {
       if (def.filter && !def.filter(r)) return false
       if (selected.size > 0 && !selected.has(Number(r.codigoEntidad))) return false
       if (!q) return true
       const hay = `${banco(r)} ${r.nombreCorto ?? ""} ${r.nombreCompleto ?? ""} ${r.descripcionEntidad ?? ""}`.toLowerCase()
       return hay.includes(q)
     })
+
+    // Saca filas idénticas (la API repite la misma oferta por bracket de monto/plazo)
+    const vistos = new Set<string>()
+    filtered = filtered.filter((r) => {
+      const sig = JSON.stringify({ ...r, fechaInformacion: undefined })
+      if (vistos.has(sig)) return false
+      vistos.add(sig)
+      return true
+    })
+
+    // Colapsa a una fila por banco (la de mejor tasa) cuando corresponde
+    if (def.onePerBank) {
+      const mejor = new Map<number, Row>()
+      for (const r of filtered) {
+        const code = Number(r.codigoEntidad)
+        const v = Number(r[def.onePerBank!] ?? -Infinity)
+        const cur = mejor.get(code)
+        if (!cur || v > Number(cur[def.onePerBank!] ?? -Infinity)) mejor.set(code, r)
+      }
+      filtered = Array.from(mejor.values())
+    }
+
     const col = def.cols.find((c) => c.key === sort.key)
     const val = (r: Row) =>
       col?.sortVal ? col.sortVal(r) : col?.fmt ? col.fmt(r[col.key], r) : (r[sort.key] as string | number)
