@@ -10,7 +10,8 @@ import {
 } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Landmark, Loader2, ArrowUpDown } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Landmark, Loader2, ArrowUpDown, Search } from "lucide-react"
 
 // ── Bancos más grandes de Argentina (codigoEntidad → nombre corto) ──
 const BANCOS: Record<number, string> = {
@@ -138,7 +139,21 @@ const PRODUCTOS: ProductoDef[] = [
   },
 ]
 
+const ALL_CODES = Object.keys(BANCOS).map(Number)
+
 export default function DatosBancariosPage() {
+  const [query, setQuery] = useState("")
+  const [selected, setSelected] = useState<Set<number>>(new Set(ALL_CODES))
+
+  const toggleBanco = (code: number) =>
+    setSelected((s) => {
+      const next = new Set(s)
+      if (next.has(code)) next.delete(code)
+      else next.add(code)
+      return next
+    })
+  const todos = selected.size === ALL_CODES.length
+
   return (
     <div className="min-h-screen bg-background p-4">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -156,6 +171,47 @@ export default function DatosBancariosPage() {
           </div>
         </div>
 
+        {/* Filtros compartidos: buscador + selector de bancos */}
+        <div className="bg-card rounded-lg shadow-sm border p-4 space-y-3">
+          <div className="relative max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Buscar por banco o producto..."
+              className="pl-9"
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setSelected(new Set(ALL_CODES))}
+              className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                todos ? "bg-primary text-primary-foreground border-primary" : "text-muted-foreground hover:bg-muted"
+              }`}
+            >
+              Todos
+            </button>
+            {ALL_CODES.map((code) => {
+              const on = selected.has(code)
+              return (
+                <button
+                  key={code}
+                  type="button"
+                  onClick={() => toggleBanco(code)}
+                  className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                    on
+                      ? "bg-primary/10 text-primary border-primary/30"
+                      : "text-muted-foreground/60 hover:bg-muted border-border"
+                  }`}
+                >
+                  {BANCOS[code]}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+
         <Tabs defaultValue="plazos">
           <TabsList className="flex-wrap h-auto">
             {PRODUCTOS.map((p) => (
@@ -166,7 +222,7 @@ export default function DatosBancariosPage() {
           </TabsList>
           {PRODUCTOS.map((p) => (
             <TabsContent key={p.value} value={p.value}>
-              <ProductoTabla def={p} />
+              <ProductoTabla def={p} query={query} selected={selected} />
             </TabsContent>
           ))}
         </Tabs>
@@ -175,7 +231,15 @@ export default function DatosBancariosPage() {
   )
 }
 
-function ProductoTabla({ def }: { def: ProductoDef }) {
+function ProductoTabla({
+  def,
+  query,
+  selected,
+}: {
+  def: ProductoDef
+  query: string
+  selected: Set<number>
+}) {
   const [rows, setRows] = useState<Row[] | null>(null)
   const [loading, setLoading] = useState(true)
   const [sort, setSort] = useState<{ key: string; dir: Dir }>(def.defaultSort)
@@ -201,17 +265,24 @@ function ProductoTabla({ def }: { def: ProductoDef }) {
 
   const sorted = useMemo(() => {
     if (!rows) return []
+    const q = query.trim().toLowerCase()
+    const filtered = rows.filter((r) => {
+      if (selected.size > 0 && !selected.has(Number(r.codigoEntidad))) return false
+      if (!q) return true
+      const hay = `${banco(r)} ${r.nombreCorto ?? ""} ${r.nombreCompleto ?? ""} ${r.descripcionEntidad ?? ""}`.toLowerCase()
+      return hay.includes(q)
+    })
     const col = def.cols.find((c) => c.key === sort.key)
     const val = (r: Row) =>
       col?.sortVal ? col.sortVal(r) : col?.fmt ? col.fmt(r[col.key], r) : (r[sort.key] as string | number)
-    const arr = [...rows].sort((a, b) => {
+    const arr = [...filtered].sort((a, b) => {
       const va = val(a)
       const vb = val(b)
       if (typeof va === "number" && typeof vb === "number") return va - vb
       return String(va).localeCompare(String(vb))
     })
     return sort.dir === "desc" ? arr.reverse() : arr
-  }, [rows, sort, def])
+  }, [rows, sort, def, query, selected])
 
   const toggleSort = (key: string) =>
     setSort((s) => (s.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }))
