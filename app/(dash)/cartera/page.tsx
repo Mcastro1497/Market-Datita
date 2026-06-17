@@ -357,8 +357,13 @@ export default function CarteraPage() {
                   {holdings.map((h) => {
                     const i = instrumentMap.get(h.symbol)
                     const st = flowStatus.get(h.symbol)
+                    const sinVn = !(h.vn > 0)
                     const sinFlujos = !loadingFlows && (!st || st.total === 0)
                     const sinFuturos = !loadingFlows && !sinFlujos && soloFuturos && st!.futuros === 0
+                    // tab donde cae este bono (moneda + jurisdicción en USD)
+                    const cur = normCurrency(i?.moneda_pago)
+                    const juris = esPesos(cur) ? null : i?.jurisdiccion_pago?.trim() || null
+                    const destLabel = juris ? `${cur} · ${juris}` : cur
                     return (
                       <div key={h.symbol} className="rounded-md border p-3 space-y-2">
                         <div className="flex items-center justify-between gap-2">
@@ -400,16 +405,23 @@ export default function CarteraPage() {
                             className="h-8 font-mono text-right"
                           />
                         </div>
-                        {sinFlujos && (
+                        {sinVn ? (
+                          <p className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                            <AlertTriangle className="h-3 w-3 shrink-0" /> Cargá un VN mayor a 0
+                          </p>
+                        ) : sinFlujos ? (
                           <p className="flex items-center gap-1 text-[11px] text-destructive">
                             <AlertTriangle className="h-3 w-3 shrink-0" /> Sin flujos cargados — no valúa
                           </p>
-                        )}
-                        {sinFuturos && (
+                        ) : sinFuturos ? (
                           <p className="flex items-center gap-1 text-[11px] text-muted-foreground">
                             <AlertTriangle className="h-3 w-3 shrink-0" /> Sin pagos futuros (¿vencido?)
                           </p>
-                        )}
+                        ) : st ? (
+                          <p className="text-[11px] text-muted-foreground">
+                            {soloFuturos ? `${st.futuros} pagos futuros` : `${st.total} pagos`} → {destLabel}
+                          </p>
+                        ) : null}
                       </div>
                     )
                   })}
