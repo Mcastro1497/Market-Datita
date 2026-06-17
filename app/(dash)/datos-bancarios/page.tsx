@@ -53,6 +53,15 @@ const money = (v: unknown) => {
 }
 const banco = (r: Row) => BANCOS[Number(r.codigoEntidad)] ?? String(r.descripcionEntidad ?? "")
 
+// La API solo trae TEA; derivamos la TNA a 30 días (forma habitual de cotizar el PF).
+function tna30(teaPct: unknown): number | null {
+  if (teaPct == null) return null
+  const tea = Number(teaPct) / 100
+  if (!Number.isFinite(tea)) return null
+  return (Math.pow(1 + tea, 30 / 365) - 1) * (365 / 30) * 100
+}
+const esHomeBanking = (r: Row) => String(r.canalConstitucion ?? "").toLowerCase().includes("home banking")
+
 const COL_BANCO: Col = { key: "_banco", label: "Banco", fmt: (_v, r) => banco(r), sortVal: (r) => banco(r) }
 
 type ProductoDef = {
@@ -61,20 +70,20 @@ type ProductoDef = {
   descripcion: string
   cols: Col[]
   defaultSort: { key: string; dir: Dir }
+  filter?: (r: Row) => boolean
 }
 
 const PRODUCTOS: ProductoDef[] = [
   {
     value: "plazos",
     label: "Plazos fijos",
-    descripcion: "Tasa efectiva anual (TEA) por banco — mayor es mejor",
+    descripcion: "Plazo fijo online (Home banking) — TNA 30 días y TEA, mayor es mejor",
+    filter: esHomeBanking,
     cols: [
       COL_BANCO,
       { key: "nombreCorto", label: "Producto" },
+      { key: "_tna", label: "TNA (30d)", align: "right", fmt: (_v, r) => pct(tna30(r.tasaEfectivaAnualMinima)), sortVal: (r) => tna30(r.tasaEfectivaAnualMinima) ?? -1 },
       { key: "tasaEfectivaAnualMinima", label: "TEA", align: "right", fmt: pct, sortVal: (r) => Number(r.tasaEfectivaAnualMinima ?? -1) },
-      { key: "montoMinimoInvertir", label: "Monto mín.", align: "right", fmt: (v) => money(v), sortVal: (r) => Number(r.montoMinimoInvertir ?? 0) },
-      { key: "plazoMinimoInvertirDias", label: "Plazo mín. (días)", align: "right", fmt: (v) => (v == null ? "—" : String(v)), sortVal: (r) => Number(r.plazoMinimoInvertirDias ?? 0) },
-      { key: "canalConstitucion", label: "Canal" },
     ],
     defaultSort: { key: "tasaEfectivaAnualMinima", dir: "desc" },
   },
@@ -267,6 +276,7 @@ function ProductoTabla({
     if (!rows) return []
     const q = query.trim().toLowerCase()
     const filtered = rows.filter((r) => {
+      if (def.filter && !def.filter(r)) return false
       if (selected.size > 0 && !selected.has(Number(r.codigoEntidad))) return false
       if (!q) return true
       const hay = `${banco(r)} ${r.nombreCorto ?? ""} ${r.nombreCompleto ?? ""} ${r.descripcionEntidad ?? ""}`.toLowerCase()
