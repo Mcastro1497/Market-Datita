@@ -11,7 +11,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Plus, Trash2, Wallet, Loader2, Check } from "lucide-react"
+import { Plus, Trash2, Wallet, Loader2, Check, AlertTriangle } from "lucide-react"
 
 const STORAGE_KEY = "lb-cartera-v1"
 
@@ -210,6 +210,20 @@ export default function CarteraPage() {
     [instruments, holdingMap],
   )
 
+  // Estado de cada símbolo: cuántos flujos tiene y cuántos a futuro (para avisar
+  // por qué un bono no valúa: sin flujos cargados o sin pagos futuros).
+  const flowStatus = useMemo(() => {
+    const today = new Date().toISOString().slice(0, 10)
+    const m = new Map<string, { total: number; futuros: number }>()
+    for (const f of flows) {
+      const s = m.get(f.symbol) ?? { total: 0, futuros: 0 }
+      s.total += 1
+      if (f.fecha_pago >= today) s.futuros += 1
+      m.set(f.symbol, s)
+    }
+    return m
+  }, [flows])
+
   // ── Flujo consolidado por moneda (+ jurisdicción en USD) y período ──
   const blocks = useMemo<FlowBlock[]>(() => {
     const today = new Date().toISOString().slice(0, 10)
@@ -342,6 +356,9 @@ export default function CarteraPage() {
                 <div className="space-y-2">
                   {holdings.map((h) => {
                     const i = instrumentMap.get(h.symbol)
+                    const st = flowStatus.get(h.symbol)
+                    const sinFlujos = !loadingFlows && (!st || st.total === 0)
+                    const sinFuturos = !loadingFlows && !sinFlujos && soloFuturos && st!.futuros === 0
                     return (
                       <div key={h.symbol} className="rounded-md border p-3 space-y-2">
                         <div className="flex items-center justify-between gap-2">
@@ -383,6 +400,16 @@ export default function CarteraPage() {
                             className="h-8 font-mono text-right"
                           />
                         </div>
+                        {sinFlujos && (
+                          <p className="flex items-center gap-1 text-[11px] text-destructive">
+                            <AlertTriangle className="h-3 w-3 shrink-0" /> Sin flujos cargados — no valúa
+                          </p>
+                        )}
+                        {sinFuturos && (
+                          <p className="flex items-center gap-1 text-[11px] text-muted-foreground">
+                            <AlertTriangle className="h-3 w-3 shrink-0" /> Sin pagos futuros (¿vencido?)
+                          </p>
+                        )}
                       </div>
                     )
                   })}
