@@ -22,6 +22,7 @@ type InstrumentLite = {
   instrument_type: string
   emisor: string | null
   moneda_pago: string | null
+  jurisdiccion_pago: string | null
   lamina_min: number | null
   vencimiento: string | null
 }
@@ -58,6 +59,12 @@ function normCurrency(c: string | null | undefined) {
   return (c || "—").trim().toUpperCase()
 }
 
+// En pesos la jurisdicción siempre es Argentina (no se muestra). En USD puede
+// ser Argentina o Nueva York, así que ahí sí separamos por jurisdicción.
+function esPesos(cur: string) {
+  return cur.includes("ARS") || cur.includes("PES") || cur === "$"
+}
+
 // fecha_pago llega como "YYYY-MM-DD"; agrupamos por substring para evitar líos de timezone
 function periodKey(iso: string, period: Period): { key: string; label: string } {
   if (period === "anio") return { key: iso.slice(0, 4), label: iso.slice(0, 4) }
@@ -72,7 +79,15 @@ function periodKey(iso: string, period: Period): { key: string; label: string } 
 
 type Agg = { interes: number; amortizacion: number; total: number }
 type Row = Agg & { key: string; label: string }
-type CurrencyBlock = { currency: string; rows: Row[]; totals: Agg; pagos: number }
+type FlowBlock = {
+  id: string
+  currency: string
+  jurisdiccion: string | null
+  label: string
+  rows: Row[]
+  totals: Agg
+  pagos: number
+}
 
 export default function CarteraPage() {
   const supabase = useMemo(() => createClient(), [])
@@ -118,7 +133,7 @@ export default function CarteraPage() {
         // (se identifican por moneda_pago), así que con .neq("FX") entran ON/HD/ARS/DLK.
         const { data, error } = await supabase
           .from("instruments_v2")
-          .select("symbol, instrument_type, emisor, moneda_pago, lamina_min, vencimiento")
+          .select("symbol, instrument_type, emisor, moneda_pago, jurisdiccion_pago, lamina_min, vencimiento")
           .or("instrument_type.neq.FX,instrument_type.is.null")
           .eq("is_active", true)
         if (!cancel && !error && data) {
@@ -195,47 +210,54 @@ export default function CarteraPage() {
     [instruments, holdingMap],
   )
 
-  // ── Flujo consolidado por moneda y período ──
-  const blocks = useMemo<CurrencyBlock[]>(() => {
+  // ── Flujo consolidado por moneda (+ jurisdicción en USD) y período ──
+  const blocks = useMemo<FlowBlock[]>(() => {
     const today = new Date().toISOString().slice(0, 10)
-    const byCur = new Map<string, Map<string, Row>>()
+    type Acc = { currency: string; jurisdiccion: string | null; rows: Map<string, Row> }
+    const byBlock = new Map<string, Acc>()
 
     for (const f of flows) {
       const vn = holdingMap.get(f.symbol)
       if (!vn || !f.fecha_pago) continue
       if (soloFuturos && f.fecha_pago < today) continue
       const scale = vn / 100
-      const cur = normCurrency(f.moneda_pago ?? instrumentMap.get(f.symbol)?.moneda_pago)
-      const { key, label } = periodKey(f.fecha_pago, period)
-      let map = byCur.get(cur)
-      if (!map) {
-        map = new Map()
-        byCur.set(cur, map)
+      const instr = instrumentMap.get(f.symbol)
+      const cur = normCurrency(f.moneda_pago ?? instr?.moneda_pago)
+      // jurisdicción solo aplica en USD; en pesos siempre es Argentina
+      const juris = esPesos(cur) ? null : instr?.jurisdiccion_pago?.trim() || null
+      const blockId = juris ? `${cur}||${juris}` : cur
+
+      let acc = byBlock.get(blockId)
+      if (!acc) {
+        acc = { currency: cur, jurisdiccion: juris, rows: new Map() }
+        byBlock.set(blockId, acc)
       }
-      let row = map.get(key)
+      const { key, label } = periodKey(f.fecha_pago, period)
+      let row = acc.rows.get(key)
       if (!row) {
         row = { key, label, interes: 0, amortizacion: 0, total: 0 }
-        map.set(key, row)
+        acc.rows.set(key, row)
       }
       row.interes += (f.interes ?? 0) * scale
       row.amortizacion += (f.amortizacion ?? 0) * scale
       row.total += (f.total ?? 0) * scale
     }
 
-    return Array.from(byCur.entries())
-      .map(([currency, map]) => {
-        const rows = Array.from(map.values()).sort((a, b) => a.key.localeCompare(b.key))
+    return Array.from(byBlock.entries())
+      .map(([id, acc]) => {
+        const rows = Array.from(acc.rows.values()).sort((a, b) => a.key.localeCompare(b.key))
         const totals = rows.reduce<Agg>(
-          (acc, r) => ({
-            interes: acc.interes + r.interes,
-            amortizacion: acc.amortizacion + r.amortizacion,
-            total: acc.total + r.total,
+          (a, r) => ({
+            interes: a.interes + r.interes,
+            amortizacion: a.amortizacion + r.amortizacion,
+            total: a.total + r.total,
           }),
           { interes: 0, amortizacion: 0, total: 0 },
         )
-        return { currency, rows, totals, pagos: rows.length }
+        const label = acc.jurisdiccion ? `${acc.currency} · ${acc.jurisdiccion}` : acc.currency
+        return { id, currency: acc.currency, jurisdiccion: acc.jurisdiccion, label, rows, totals, pagos: rows.length }
       })
-      .sort((a, b) => b.totals.total - a.totals.total)
+      .sort((a, b) => a.label.localeCompare(b.label))
   }, [flows, holdingMap, instrumentMap, period, soloFuturos])
 
   const addHolding = (symbol: string) => {
@@ -420,16 +442,16 @@ export default function CarteraPage() {
                     : "No hay flujos para mostrar con la configuración actual."}
                 </p>
               ) : (
-                <Tabs defaultValue={blocks[0].currency}>
+                <Tabs defaultValue={blocks[0].id}>
                   <TabsList>
                     {blocks.map((b) => (
-                      <TabsTrigger key={b.currency} value={b.currency}>
-                        {b.currency}
+                      <TabsTrigger key={b.id} value={b.id}>
+                        {b.label}
                       </TabsTrigger>
                     ))}
                   </TabsList>
                   {blocks.map((b) => (
-                    <TabsContent key={b.currency} value={b.currency} className="space-y-4">
+                    <TabsContent key={b.id} value={b.id} className="space-y-4">
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                         <Summary label="Interés" value={b.totals.interes} cur={b.currency} />
                         <Summary label="Amortización" value={b.totals.amortizacion} cur={b.currency} />
