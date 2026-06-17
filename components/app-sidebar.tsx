@@ -12,6 +12,7 @@ import {
   Settings,
   Wallet,
   HandCoins,
+  LineChart,
 } from "lucide-react"
 import {
   Sidebar,
@@ -34,6 +35,7 @@ const nav = [
   { href: "/soberanos-ars", label: "Soberanos ARS", icon: PiggyBank },
   { href: "/dlk", label: "Dólar Linked", icon: Link2 },
   { href: "/todos-los-tickers", label: "Todos los tickers", icon: ListOrdered },
+  { href: "/macro", label: "Macro", icon: LineChart },
 ]
 
 const tools = [
