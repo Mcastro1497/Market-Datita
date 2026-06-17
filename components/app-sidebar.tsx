@@ -11,6 +11,7 @@ import {
   ListOrdered,
   Settings,
   Wallet,
+  HandCoins,
 } from "lucide-react"
 import {
   Sidebar,
@@ -37,6 +38,7 @@ const nav = [
 
 const tools = [
   { href: "/cartera", label: "Cartera", icon: Wallet },
+  { href: "/financiamiento", label: "Financiamiento", icon: HandCoins },
   { href: "/admin", label: "Administración", icon: Settings },
 ]
 

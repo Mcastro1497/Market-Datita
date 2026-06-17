@@ -142,6 +142,15 @@
   --color-lb-black: var(--lb-black);
   --color-lb-white: var(--lb-white);
 
+  /* Alias usados por los componentes de Financiamiento (portados de la app de cheques) */
+  --color-violeta: #522398;
+  --color-violeta-comp: #5632b2;
+  --color-violeta-acento: #8555ff;
+  --color-lavanda: #f4e9fe;
+  --color-verde: #73ffa1;
+  --color-tinta: #2c2b2e;
+  --color-papel: #fbfafd;
+
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
