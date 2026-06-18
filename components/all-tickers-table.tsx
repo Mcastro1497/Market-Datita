@@ -27,6 +27,7 @@ export function AllTickersTable() {
   const [searchTerm, setSearchTerm] = useState("")
   const [typeFilter, setTypeFilter] = useState<string>("all")
   const [refFilter, setRefFilter] = useState<string>("all")
+  const [monedaFilter, setMonedaFilter] = useState<string>("all")
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -61,6 +62,10 @@ export function AllTickersTable() {
     () => [...new Set(rows.map((r) => r.referencias).filter(Boolean) as string[])].sort(),
     [rows],
   )
+  const monedas = useMemo(
+    () => [...new Set(rows.map((r) => r.moneda_pago).filter(Boolean) as string[])].sort(),
+    [rows],
+  )
 
   const filtered = useMemo(() => {
     const q = searchTerm.trim().toLowerCase()
@@ -73,9 +78,10 @@ export function AllTickersTable() {
         r.legislacion?.toLowerCase().includes(q)
       const matchesType = typeFilter === "all" || r.tipo_activo === typeFilter
       const matchesRef = refFilter === "all" || r.referencias === refFilter
-      return matchesSearch && matchesType && matchesRef
+      const matchesMoneda = monedaFilter === "all" || r.moneda_pago === monedaFilter
+      return matchesSearch && matchesType && matchesRef && matchesMoneda
     })
-  }, [rows, searchTerm, typeFilter, refFilter])
+  }, [rows, searchTerm, typeFilter, refFilter, monedaFilter])
 
   const formatCurrency = (value: number | null) =>
     value == null
@@ -147,6 +153,19 @@ export function AllTickersTable() {
               {referencias.map((r) => (
                 <SelectItem key={r} value={r}>
                   {r}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select value={monedaFilter} onValueChange={setMonedaFilter}>
+            <SelectTrigger className="w-44">
+              <SelectValue placeholder="Filtrar por moneda" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas las monedas</SelectItem>
+              {monedas.map((m) => (
+                <SelectItem key={m} value={m}>
+                  {m}
                 </SelectItem>
               ))}
             </SelectContent>
