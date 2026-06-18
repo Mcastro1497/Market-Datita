@@ -134,9 +134,9 @@ export function SoberanosArsDetailsTable({ flows, activeTab }: SoberanosArsDetai
               <SortHead field="ticker" label="Ticker" />
               <SortHead field="lastPrice.last" label="Precio ARS" />
               <SortHead field="lastPrice.change" label="Var %" />
+              {isFija && <SortHead field="lastPrice.tna" label="TNA" />}
               <SortHead field="lastPrice.ytm" label="TIR" />
               <SortHead field="lastPrice.duration_y" label="Duración" />
-              {isFija && <SortHead field="lastPrice.tna" label="TNA" />}
               <SortHead field="details.vencimiento" label="Vto." />
             </TableRow>
           </TableHeader>
@@ -156,9 +156,9 @@ export function SoberanosArsDetailsTable({ flows, activeTab }: SoberanosArsDetai
                       {formatPercentage(chg)}
                     </span>
                   </TableCell>
+                  {isFija && <TableCell className="text-center tabular-nums">{formatPercentage(flow.lastPrice?.tna)}</TableCell>}
                   <TableCell className="text-center tabular-nums">{formatPercentage(flow.lastPrice?.ytm)}</TableCell>
                   <TableCell className="text-center tabular-nums">{formatDuration(flow.lastPrice?.duration_y)}</TableCell>
-                  {isFija && <TableCell className="text-center tabular-nums">{formatPercentage(flow.lastPrice?.tna)}</TableCell>}
                   <TableCell className="text-center">{formatDate(flow.details?.vencimiento)}</TableCell>
                 </TableRow>
               )
