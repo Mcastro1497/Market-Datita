@@ -15,7 +15,7 @@ import type { ReactNode } from "react"
 type PriceLite = {
   last: number | null
   price_ars: number | null
-  price_usd: number | null
+  closing_price: number | null
   ytm: number | null
   duration_y: number | null
   change_pct: number | null
@@ -55,9 +55,10 @@ export function AllTickersTable() {
       try {
         const [instrRes, pricesRes] = await Promise.all([
           supabase.from("instruments_v2").select("*").eq("is_active", true).order("symbol"),
-          supabase.from("prices").select("symbol, last, price_ars, price_usd, ytm, duration_y, change_pct, tna"),
+          supabase.from("prices").select("symbol, last, price_ars, closing_price, ytm, duration_y, change_pct, tna"),
         ])
         if (instrRes.error) throw instrRes.error
+        if (pricesRes.error) console.error("prices error:", pricesRes.error)
         const priceMap = new Map<string, PriceLite>(
           (pricesRes.data || []).map((p: any) => [p.symbol, p]),
         )
@@ -284,7 +285,7 @@ function TickerDetailDialog({ row, onClose }: { row: Row | null; onClose: () => 
   const p = row?.price
   // precio a mostrar: ARS si paga en pesos, si no el último (USD)
   const esArs = (row?.moneda_pago || "").toUpperCase().includes("ARS")
-  const precio = esArs ? p?.price_ars ?? p?.last : p?.last ?? p?.price_usd
+  const precio = esArs ? p?.price_ars ?? p?.last ?? p?.closing_price : p?.last ?? p?.closing_price
   return (
     <Dialog open={!!row} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-2xl">
