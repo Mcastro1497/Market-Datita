@@ -50,7 +50,7 @@ export function AppSidebar() {
   const pathname = usePathname()
 
   const isActive = (href: string) =>
-    href === "/" ? pathname === "/" : pathname.startsWith(href)
+    href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(href + "/")
 
   return (
     <Sidebar collapsible="icon">

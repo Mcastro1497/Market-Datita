@@ -10,6 +10,17 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import type { AllTicker } from "@/lib/types"
 import { Search, Filter } from "lucide-react"
 
+// instruments_v2 usa symbol/instrument_type; derivamos el tipo de activo legible.
+function tipoActivo(i: any): string {
+  const t = i.instrument_type
+  const ref = (i.referencias || "").trim()
+  if (t === "ON") return "Obligacion Negociable"
+  if (t === "HD") return "Soberanos Hard Dollar"
+  if (t === "DLK" || ref === "A3500") return "Dólar Linked"
+  if (i.moneda_pago === "ARS") return "Soberanos ARS"
+  return t || "Otro"
+}
+
 export function AllTickersTable() {
   const [tickers, setTickers] = useState<AllTicker[]>([])
   const [filteredTickers, setFilteredTickers] = useState<AllTicker[]>([])
@@ -32,10 +43,20 @@ export function AllTickersTable() {
 
   const fetchAllTickers = async () => {
     try {
-      const { data, error } = await supabase.from("instruments_v2").select("*").order("symbol")
+      const { data, error } = await supabase
+        .from("instruments_v2")
+        .select("*")
+        .eq("is_active", true)
+        .order("symbol")
 
       if (error) throw error
-      setTickers(data || [])
+      // Mapeamos a la forma que usa la tabla (ticker / tipo_activo)
+      const mapped = (data || []).map((i: any) => ({
+        ...i,
+        ticker: i.symbol,
+        tipo_activo: tipoActivo(i),
+      })) as AllTicker[]
+      setTickers(mapped)
     } catch (error) {
       console.error("Error fetching tickers:", error)
     } finally {
@@ -47,11 +68,12 @@ export function AllTickersTable() {
     let filtered = tickers
 
     if (searchTerm) {
+      const q = searchTerm.toLowerCase()
       filtered = filtered.filter(
         (ticker) =>
-          ticker.ticker.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          ticker.legislacion?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          ticker.sector?.toLowerCase().includes(searchTerm.toLowerCase()),
+          ticker.ticker?.toLowerCase().includes(q) ||
+          ticker.tipo_activo?.toLowerCase().includes(q) ||
+          ticker.legislacion?.toLowerCase().includes(q),
       )
     }
 
@@ -120,7 +142,8 @@ export function AllTickersTable() {
               <SelectItem value="all">Todos los tipos</SelectItem>
               <SelectItem value="Obligacion Negociable">Obligación Negociable</SelectItem>
               <SelectItem value="Soberanos Hard Dollar">Soberanos Hard Dollar</SelectItem>
-              <SelectItem value="Soberanos ARS">Soberanos ARS</SelectItem> {/* Added Soberanos ARS filter option */}
+              <SelectItem value="Soberanos ARS">Soberanos ARS</SelectItem>
+              <SelectItem value="Dólar Linked">Dólar Linked</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -137,14 +160,12 @@ export function AllTickersTable() {
                 <TableHead>Calleable</TableHead>
                 <TableHead>Legislación</TableHead>
                 <TableHead>Jurisdicción</TableHead>
-                <TableHead>Sector</TableHead>
-                <TableHead>Rating</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filteredTickers.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} className="text-center py-8 text-muted-foreground">
+                  <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
                     No se encontraron instrumentos
                   </TableCell>
                 </TableRow>
@@ -177,8 +198,6 @@ export function AllTickersTable() {
                     </TableCell>
                     <TableCell>{ticker.legislacion || "-"}</TableCell>
                     <TableCell>{ticker.jurisdiccion_pago || "-"}</TableCell>
-                    <TableCell>{ticker.sector || "-"}</TableCell>
-                    <TableCell>{ticker.rating || "-"}</TableCell>
                   </TableRow>
                 ))
               )}
