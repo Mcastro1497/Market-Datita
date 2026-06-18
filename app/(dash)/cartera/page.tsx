@@ -30,9 +30,14 @@ type InstrumentLite = {
 type FlowRow = {
   symbol: string
   fecha_pago: string
+  // base (unidades de cada instrumento; CER en unidades CER)
   interes: number | null
   amortizacion: number | null
   total: number | null
+  // proyectado en pesos (CER ajustado por coeficiente; resto = base)
+  interes_proyectado: number | null
+  amortizacion_proyectado: number | null
+  total_proyectado: number | null
   moneda_pago: string | null
 }
 
@@ -169,8 +174,8 @@ export default function CarteraPage() {
         const batch = 1000
         while (true) {
           const { data, error } = await supabase
-            .from("instrument_flows_v2")
-            .select("symbol, fecha_pago, interes, amortizacion, total, moneda_pago")
+            .from("instrument_flows_v3")
+            .select("symbol, fecha_pago, interes, amortizacion, total, interes_proyectado, amortizacion_proyectado, total_proyectado, moneda_pago")
             .in("symbol", symbols)
             .order("fecha_pago", { ascending: true })
             .range(start, start + batch - 1)
@@ -252,9 +257,10 @@ export default function CarteraPage() {
         row = { key, label, interes: 0, amortizacion: 0, total: 0 }
         acc.rows.set(key, row)
       }
-      row.interes += (f.interes ?? 0) * scale
-      row.amortizacion += (f.amortizacion ?? 0) * scale
-      row.total += (f.total ?? 0) * scale
+      // Usa el flujo proyectado en pesos (CER ajustado); fallback al base
+      row.interes += (f.interes_proyectado ?? f.interes ?? 0) * scale
+      row.amortizacion += (f.amortizacion_proyectado ?? f.amortizacion ?? 0) * scale
+      row.total += (f.total_proyectado ?? f.total ?? 0) * scale
     }
 
     return Array.from(byBlock.entries())
