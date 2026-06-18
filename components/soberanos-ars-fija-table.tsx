@@ -118,16 +118,6 @@ export function SoberanosArsFijaTable({ flows, activeTab }: SoberanosArsFijaTabl
     }).format(value)
   }
 
-  const formatAmount = (value: number | null | undefined) => {
-    if (value == null) return "—"
-    return new Intl.NumberFormat("es-AR", {
-      style: "decimal",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-      useGrouping: true,
-    }).format(value)
-  }
-
   const formatDate = (dateString?: string | null) => {
     const d = parseLocalISODate(dateString)
     if (!d) return "—"
@@ -208,18 +198,8 @@ export function SoberanosArsFijaTable({ flows, activeTab }: SoberanosArsFijaTabl
           <TableHeader className="sticky top-0 bg-background z-10 shadow-sm">
             <TableRow>
               <TableHead className="text-left">
-                <Button variant="ghost" onClick={() => handleSort("emisor")} className="h-auto p-0 font-semibold">
-                  Emisor <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-              </TableHead>
-              <TableHead className="text-left">
                 <Button variant="ghost" onClick={() => handleSort("ticker")} className="h-auto p-0 font-semibold">
                   Ticker <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-              </TableHead>
-              <TableHead className="text-center">
-                <Button variant="ghost" onClick={() => handleSort("details.tipo_cupon")} className="h-auto p-0 font-semibold">
-                  Tipo <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
               </TableHead>
               <TableHead className="text-center">
@@ -247,7 +227,7 @@ export function SoberanosArsFijaTable({ flows, activeTab }: SoberanosArsFijaTabl
                   className="h-auto p-0 font-semibold"
                 >
                   TNA <ArrowUpDown className="ml-2 h-4 w-4" />
-                   </Button>
+                </Button>
               </TableHead>
               <TableHead className="text-center">
                 <Button
@@ -276,44 +256,14 @@ export function SoberanosArsFijaTable({ flows, activeTab }: SoberanosArsFijaTabl
                   Vencimiento <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
               </TableHead>
-              <TableHead className="text-center">
-                <Button
-                  variant="ghost"
-                  onClick={() => handleSort("details.moneda_denom")}
-                  className="h-auto p-0 font-semibold"
-                >
-                  Moneda <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-              </TableHead>
-              <TableHead className="text-center">
-                <Button
-                  variant="ghost"
-                  onClick={() => handleSort("details.lamina_min")}
-                  className="h-auto p-0 font-semibold"
-                >
-                  Lámina Mínima <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-              </TableHead>
-              <TableHead className="text-center">
-                <Button
-                  variant="ghost"
-                  onClick={() => handleSort("details.vr_vigente")}
-                  className="h-auto p-0 font-semibold"
-                >
-                  Monto Residual <ArrowUpDown className="ml-2 h-4 w-4" />
-                </Button>
-              </TableHead>
             </TableRow>
           </TableHeader>
 
           <TableBody>
             {filteredAndSortedFlows.map((flow) => (
               <TableRow key={flow.id}>
-                <TableCell className="text-center">{flow.emisor}</TableCell>
-                <TableCell className="text-center font-medium">{flow.ticker}</TableCell>
-                <TableCell className="text-center">{flow.details?.tipo_cupon ?? "—"}</TableCell>
+                <TableCell className="text-left font-medium">{flow.ticker}</TableCell>
                 <TableCell className="text-center">{formatCurrency(flow.lastPrice?.last)}</TableCell>
-
                 <TableCell className="text-center">
                   <span
                     className={`${
@@ -331,9 +281,6 @@ export function SoberanosArsFijaTable({ flows, activeTab }: SoberanosArsFijaTabl
                 <TableCell className="text-center">{formatPercentage(flow.lastPrice?.ytm)}</TableCell>
                 <TableCell className="text-center">{formatDuration(flow.lastPrice?.duration_y)}</TableCell>
                 <TableCell className="text-center">{formatDate(flow.details?.vencimiento)}</TableCell>
-                <TableCell className="text-center">{flow.details?.moneda_denom ?? "—"}</TableCell>
-                <TableCell className="text-center">{formatAmount(flow.details?.lamina_min)}</TableCell>
-                <TableCell className="text-center">{formatAmount(flow.details?.vr_vigente)}</TableCell>
               </TableRow>
             ))}
           </TableBody>
