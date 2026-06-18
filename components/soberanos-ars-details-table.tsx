@@ -149,7 +149,16 @@ export function SoberanosArsDetailsTable({ flows, activeTab }: SoberanosArsDetai
                   onClick={() => setSelected(flow)}
                   className="cursor-pointer hover:bg-muted/50"
                 >
-                  <TableCell className="text-center font-medium">{flow.ticker}</TableCell>
+                  <TableCell className="text-center font-medium">
+                    <div className="flex flex-col items-center leading-tight">
+                      <span>{flow.ticker}</span>
+                      {flow.lastPrice?.cer_fixed && (
+                        <Badge variant="secondary" className="mt-0.5 text-[10px] px-1.5 py-0">
+                          Fixed
+                        </Badge>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell className="text-center tabular-nums">{formatArs(flow.lastPrice?.last)}</TableCell>
                   <TableCell className="text-center tabular-nums">
                     <span className={chg && chg > 0 ? "text-success" : chg && chg < 0 ? "text-destructive" : "text-muted-foreground"}>
@@ -190,6 +199,9 @@ function BondDetailDialog({ flow, onClose }: { flow: SoberanoWithDetails | null;
               <DialogTitle className="flex items-baseline gap-2">
                 <span className="text-xl font-bold">{flow.ticker}</span>
                 {d?.instrument_type && <span className="text-sm font-normal text-muted-foreground">{d.instrument_type}</span>}
+                {flow.lastPrice?.cer_fixed && (
+                  <Badge variant="secondary" className="text-[10px]">Fixed · TIR nominal</Badge>
+                )}
               </DialogTitle>
               <p className="text-sm text-muted-foreground">
                 {flow.emisor}
