@@ -180,6 +180,7 @@ export function SoberanosArsDetailsTable({ flows, activeTab }: SoberanosArsDetai
 function BondDetailDialog({ flow, onClose }: { flow: SoberanoWithDetails | null; onClose: () => void }) {
   const d = flow?.details
   const isTamar = d?.instrument_type === "TAMAR"
+  const isCer = d?.instrument_type === "CER"
   return (
     <Dialog open={!!flow} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-2xl">
@@ -219,6 +220,8 @@ function BondDetailDialog({ flow, onClose }: { flow: SoberanoWithDetails | null;
               <Field label="Convención int." value={d?.convencion_int} />
               <Field label="Periodicidad int." value={d?.periodicidad_int} />
               {!isTamar && <Field label="CER emisión" value={formatDecimal(d?.cer_emision)} />}
+              {isCer && <Field label="CER t-10" value={formatDecimal(d?.cer_t10)} />}
+              {isCer && <Field label="Ratio (t-10 / emisión)" value={formatDecimal(d?.ratio_cer)} />}
               {isTamar && <Field label="Margen ref." value={formatPercentage(d?.margen_ref)} />}
               <Field label="Lámina mínima" value={formatAmount(d?.lamina_min)} />
               <Field label="Operación mínima" value={formatAmount(d?.operacion_min)} />

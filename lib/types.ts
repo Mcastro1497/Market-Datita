@@ -142,6 +142,9 @@ export type SoberanoWithDetails = {
     moneda_pago:       string | null
     tipo_cupon:        string | null
     cer_emision:       number | null
+    // ── CER: t-10 y ratio aplicable (derivados de instrument_flows_v3) ──
+    cer_t10?:          number | null
+    ratio_cer?:        number | null
     // ── Detalle ampliado (instruments_v2) ──
     denominacion?:     string | null
     isin?:             string | null
