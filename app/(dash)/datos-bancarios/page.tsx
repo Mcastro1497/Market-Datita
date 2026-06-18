@@ -107,8 +107,7 @@ const PRODUCTOS: ProductoDef[] = [
   {
     value: "personales",
     label: "Préstamos personales",
-    descripcion: "Mejor TEA por banco — costo financiero total (CFT) · menor es mejor",
-    onePerBank: { key: "tasaEfectivaAnualMaxima", dir: "min" },
+    descripcion: "TEA y costo financiero total (CFT) · menor es mejor",
     cols: [
       COL_BANCO,
       { key: "nombreCorto", label: "Producto" },
@@ -124,8 +123,7 @@ const PRODUCTOS: ProductoDef[] = [
   {
     value: "hipotecarios",
     label: "Hipotecarios",
-    descripcion: "Mejor TEA por banco — vivienda · CFT y relación cuota/ingreso",
-    onePerBank: { key: "tasaEfectivaAnualMaxima", dir: "min" },
+    descripcion: "Vivienda · TEA, CFT y relación cuota/ingreso",
     cols: [
       COL_BANCO,
       { key: "nombreCorto", label: "Producto" },
@@ -141,8 +139,7 @@ const PRODUCTOS: ProductoDef[] = [
   {
     value: "prendarios",
     label: "Prendarios",
-    descripcion: "Mejor TEA por banco — autos · CFT y montos",
-    onePerBank: { key: "tasaEfectivaAnualMaxima", dir: "min" },
+    descripcion: "Autos · TEA, CFT y montos",
     cols: [
       COL_BANCO,
       { key: "nombreCorto", label: "Producto" },
@@ -158,8 +155,7 @@ const PRODUCTOS: ProductoDef[] = [
   {
     value: "tarjetas",
     label: "Tarjetas",
-    descripcion: "Mejor TEA de financiación por banco — y TEA de adelanto",
-    onePerBank: { key: "tasaEfectivaAnualMaximaFinanciacion", dir: "min" },
+    descripcion: "TEA de financiación y adelanto por tarjeta",
     cols: [
       COL_BANCO,
       { key: "nombreCorto", label: "Tarjeta" },
