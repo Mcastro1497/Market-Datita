@@ -3,80 +3,109 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+  LB Finanzas — Brand tokens (Brandbook v1)
+  Primarios:  Violeta #522398 · Negro #2c2b2e · Blanco #fbfafd
+  Secundarios: Violeta compl. #5632b2 · Lavanda #f4e9fe · Violeta acento #8555ff · Verde acento #73ffa1
+*/
+
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
-  --destructive: oklch(0.577 0.245 27.325);
-  --destructive-foreground: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  /* Marca */
+  --lb-violet: #522398;
+  --lb-violet-compl: #5632b2;
+  --lb-violet-accent: #8555ff;
+  --lb-lavender: #f4e9fe;
+  --lb-green: #73ffa1;
+  --lb-black: #2c2b2e;
+  --lb-white: #fbfafd;
+
+  /* Light theme */
+  --background: #fbfafd;
+  --foreground: #2c2b2e;
+  --card: #ffffff;
+  --card-foreground: #2c2b2e;
+  --popover: #ffffff;
+  --popover-foreground: #2c2b2e;
+  --primary: #522398;
+  --primary-foreground: #fbfafd;
+  --secondary: #f4e9fe;
+  --secondary-foreground: #522398;
+  --muted: #f3f0f8;
+  --muted-foreground: #6b6577;
+  --accent: #f4e9fe;
+  --accent-foreground: #522398;
+  --destructive: #e02f44;
+  --destructive-foreground: #fbfafd;
+  --success: #18a558;
+  --success-foreground: #fbfafd;
+  --border: #e8e2f1;
+  --input: #e8e2f1;
+  --ring: #8555ff;
+
+  /* Charts — paleta de marca */
+  --chart-1: #522398;
+  --chart-2: #8555ff;
+  --chart-3: #73ffa1;
+  --chart-4: #5632b2;
+  --chart-5: #b794f6;
+
+  --radius: 0.75rem;
+
+  /* Sidebar */
+  --sidebar: #522398;
+  --sidebar-foreground: #fbfafd;
+  --sidebar-primary: #8555ff;
+  --sidebar-primary-foreground: #fbfafd;
+  --sidebar-accent: #5632b2;
+  --sidebar-accent-foreground: #fbfafd;
+  --sidebar-border: #5632b2;
+  --sidebar-ring: #8555ff;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.145 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.145 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.985 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.396 0.141 25.723);
-  --destructive-foreground: oklch(0.637 0.237 25.331);
-  --border: oklch(0.269 0 0);
-  --input: oklch(0.269 0 0);
-  --ring: oklch(0.439 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(0.269 0 0);
-  --sidebar-ring: oklch(0.439 0 0);
+  --background: #201f23;
+  --foreground: #fbfafd;
+  --card: #2c2b2e;
+  --card-foreground: #fbfafd;
+  --popover: #2c2b2e;
+  --popover-foreground: #fbfafd;
+  --primary: #8555ff;
+  --primary-foreground: #fbfafd;
+  --secondary: #38304a;
+  --secondary-foreground: #f4e9fe;
+  --muted: #322f38;
+  --muted-foreground: #a39db0;
+  --accent: #5632b2;
+  --accent-foreground: #fbfafd;
+  --destructive: #ff5e72;
+  --destructive-foreground: #fbfafd;
+  --success: #73ffa1;
+  --success-foreground: #14331f;
+  --border: #3a3740;
+  --input: #3a3740;
+  --ring: #8555ff;
+
+  --chart-1: #8555ff;
+  --chart-2: #b794f6;
+  --chart-3: #73ffa1;
+  --chart-4: #6d3fc4;
+  --chart-5: #f4e9fe;
+
+  --sidebar: #2c2b2e;
+  --sidebar-foreground: #fbfafd;
+  --sidebar-primary: #8555ff;
+  --sidebar-primary-foreground: #fbfafd;
+  --sidebar-accent: #38304a;
+  --sidebar-accent-foreground: #f4e9fe;
+  --sidebar-border: #3a3740;
+  --sidebar-ring: #8555ff;
 }
 
 @theme inline {
-  --font-sans: 'Geist', 'Geist Fallback';
-  --font-mono: 'Geist Mono', 'Geist Mono Fallback';
+  --font-sans: var(--font-sans), 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-display), 'Space Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-mono), ui-monospace, monospace;
+
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -93,6 +122,8 @@
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -101,10 +132,30 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
+
+  /* Colores de marca disponibles como utilidades (bg-lb-violet, text-lb-green, …) */
+  --color-lb-violet: var(--lb-violet);
+  --color-lb-violet-compl: var(--lb-violet-compl);
+  --color-lb-violet-accent: var(--lb-violet-accent);
+  --color-lb-lavender: var(--lb-lavender);
+  --color-lb-green: var(--lb-green);
+  --color-lb-black: var(--lb-black);
+  --color-lb-white: var(--lb-white);
+
+  /* Alias usados por los componentes de Financiamiento (portados de la app de cheques) */
+  --color-violeta: #522398;
+  --color-violeta-comp: #5632b2;
+  --color-violeta-acento: #8555ff;
+  --color-lavanda: #f4e9fe;
+  --color-verde: #73ffa1;
+  --color-tinta: #2c2b2e;
+  --color-papel: #fbfafd;
+
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -122,4 +173,26 @@
   body {
     @apply bg-background text-foreground;
   }
+  /* H1 / titulares grandes usan la grotesca (sustituta de Tomato Grotesk) */
+  h1 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+  }
+}
+
+/* Degradado de marca (violeta → acento) para heros y piezas destacadas */
+.lb-gradient {
+  background-image: linear-gradient(135deg, var(--lb-violet-compl) 0%, var(--lb-violet-accent) 100%);
+}
+.lb-gradient-soft {
+  background-image: linear-gradient(135deg, var(--lb-violet-accent) 0%, var(--lb-lavender) 100%);
+}
+/* Trama: grilla de cuadrados con desvanecido radial hacia los bordes */
+.lb-trama {
+  background-image:
+    linear-gradient(to right, color-mix(in srgb, currentColor 12%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in srgb, currentColor 12%, transparent) 1px, transparent 1px);
+  background-size: 28px 28px;
+  -webkit-mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
+  mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
 }

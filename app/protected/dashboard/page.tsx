@@ -82,15 +82,15 @@ export default async function ProtectedDashboard() {
 
         {/* Free Plan Notice */}
         {profile?.subscription_status === "free" && (
-          <Card className="border-amber-200 bg-amber-50">
+          <Card className="border-lb-violet-compl/30 bg-lb-violet-compl/10">
             <CardHeader>
-              <CardTitle className="text-amber-800">Plan Gratuito</CardTitle>
-              <CardDescription className="text-amber-700">
+              <CardTitle className="text-lb-violet-compl">Plan Gratuito</CardTitle>
+              <CardDescription className="text-lb-violet-compl">
                 Estás usando el plan gratuito con funcionalidades limitadas
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <Button variant="outline" className="border-amber-300 text-amber-800 hover:bg-amber-100 bg-transparent">
+              <Button variant="outline" className="border-lb-violet-compl/30 text-lb-violet-compl hover:bg-lb-violet-compl/10 bg-transparent">
                 Actualizar a Premium
               </Button>
             </CardContent>

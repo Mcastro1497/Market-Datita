@@ -26,7 +26,7 @@ export function SoberanosArsCerTable({ flows, activeTab }: SoberanosArsCerTableP
   }, [flows])
 
   const uniqueTipos = useMemo(() => {
-    const tipos = [...new Set(flows.map((flow) => flow.details?.tipo).filter(Boolean) as string[])]
+    const tipos = [...new Set(flows.map((flow) => flow.details?.tipo_cupon).filter(Boolean) as string[])]
     return tipos.sort()
   }, [flows])
 
@@ -56,7 +56,7 @@ export function SoberanosArsCerTable({ flows, activeTab }: SoberanosArsCerTableP
         !emisorFilter || emisorFilter === "all" || flow.emisor === emisorFilter
 
       const matchesTipo =
-        !tipoFilter || tipoFilter === "all" || flow.details?.tipo === tipoFilter
+        !tipoFilter || tipoFilter === "all" || flow.details?.tipo_cupon === tipoFilter
 
       return matchesSearch && matchesEmisor && matchesTipo
     })
@@ -64,9 +64,9 @@ export function SoberanosArsCerTable({ flows, activeTab }: SoberanosArsCerTableP
     if (sortField) {
       filtered.sort((a, b) => {
         // sort especial por vencimiento con parser local
-        if (sortField === "details.fecha_vencimiento") {
-          const da = parseLocalISODate(a.details?.fecha_vencimiento)?.getTime() ?? -Infinity
-          const db = parseLocalISODate(b.details?.fecha_vencimiento)?.getTime() ?? -Infinity
+        if (sortField === "details.vencimiento") {
+          const da = parseLocalISODate(a.details?.vencimiento)?.getTime() ?? -Infinity
+          const db = parseLocalISODate(b.details?.vencimiento)?.getTime() ?? -Infinity
           return sortDirection === "asc" ? da - db : db - da
         }
 
@@ -146,19 +146,19 @@ export function SoberanosArsCerTable({ flows, activeTab }: SoberanosArsCerTableP
 
   return (
     <div className="space-y-4">
-      <div className="bg-gradient-to-r from-orange-50 to-amber-50 border border-orange-200 rounded-lg p-4">
+      <div className="bg-primary/10 border border-primary/30 rounded-lg p-4">
         <div className="flex items-center gap-2 mb-2">
-          <PiggyBank className="h-5 w-5 text-orange-600" />
-          <h3 className="font-semibold text-orange-800">Soberanos ARS</h3>
+          <PiggyBank className="h-5 w-5 text-primary" />
+          <h3 className="font-semibold text-foreground">Soberanos ARS</h3>
         </div>
-        <p className="text-sm text-orange-700">
+        <p className="text-sm text-muted-foreground">
           Bonos soberanos denominados en pesos argentinos. Todos los valores están expresados en ARS.
         </p>
       </div>
 
       <div className="flex gap-4 items-center">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
           <Input
             placeholder="Buscar por ticker o emisor..."
             value={searchTerm}
@@ -218,7 +218,7 @@ export function SoberanosArsCerTable({ flows, activeTab }: SoberanosArsCerTableP
                 </Button>
               </TableHead>
               <TableHead className="text-center">
-                <Button variant="ghost" onClick={() => handleSort("details.tipo")} className="h-auto p-0 font-semibold">
+                <Button variant="ghost" onClick={() => handleSort("details.tipo_cupon")} className="h-auto p-0 font-semibold">
                   Tipo <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
               </TableHead>
@@ -270,7 +270,7 @@ export function SoberanosArsCerTable({ flows, activeTab }: SoberanosArsCerTableP
               <TableHead className="text-center">
                 <Button
                   variant="ghost"
-                  onClick={() => handleSort("details.fecha_vencimiento")}
+                  onClick={() => handleSort("details.vencimiento")}
                   className="h-auto p-0 font-semibold"
                 >
                   Vencimiento <ArrowUpDown className="ml-2 h-4 w-4" />
@@ -279,7 +279,7 @@ export function SoberanosArsCerTable({ flows, activeTab }: SoberanosArsCerTableP
               <TableHead className="text-center">
                 <Button
                   variant="ghost"
-                  onClick={() => handleSort("details.moneda")}
+                  onClick={() => handleSort("details.moneda_denom")}
                   className="h-auto p-0 font-semibold"
                 >
                   Moneda <ArrowUpDown className="ml-2 h-4 w-4" />
@@ -288,7 +288,7 @@ export function SoberanosArsCerTable({ flows, activeTab }: SoberanosArsCerTableP
               <TableHead className="text-center">
                 <Button
                   variant="ghost"
-                  onClick={() => handleSort("details.lamina_minima")}
+                  onClick={() => handleSort("details.lamina_min")}
                   className="h-auto p-0 font-semibold"
                 >
                   Lámina Mínima <ArrowUpDown className="ml-2 h-4 w-4" />
@@ -297,7 +297,7 @@ export function SoberanosArsCerTable({ flows, activeTab }: SoberanosArsCerTableP
               <TableHead className="text-center">
                 <Button
                   variant="ghost"
-                  onClick={() => handleSort("details.monto_residual")}
+                  onClick={() => handleSort("details.vr_vigente")}
                   className="h-auto p-0 font-semibold"
                 >
                   Monto Residual <ArrowUpDown className="ml-2 h-4 w-4" />
@@ -311,17 +311,17 @@ export function SoberanosArsCerTable({ flows, activeTab }: SoberanosArsCerTableP
               <TableRow key={flow.id}>
                 <TableCell className="text-center">{flow.emisor}</TableCell>
                 <TableCell className="text-center font-medium">{flow.ticker}</TableCell>
-                <TableCell className="text-center">{flow.details?.tipo ?? "—"}</TableCell>
+                <TableCell className="text-center">{flow.details?.tipo_cupon ?? "—"}</TableCell>
                 <TableCell className="text-center">{formatCurrency(flow.lastPrice?.last)}</TableCell>
 
                 <TableCell className="text-center">
                   <span
                     className={`${
                       flow.lastPrice?.change && flow.lastPrice.change > 0
-                        ? "text-green-600"
+                        ? "text-success"
                         : flow.lastPrice?.change && flow.lastPrice.change < 0
-                        ? "text-red-600"
-                        : "text-gray-600"
+                        ? "text-destructive"
+                        : "text-muted-foreground"
                     }`}
                   >
                     {formatPercentage(flow.lastPrice?.change)}
@@ -330,10 +330,10 @@ export function SoberanosArsCerTable({ flows, activeTab }: SoberanosArsCerTableP
                 <TableCell className="text-center">{formatPercentage(flow.lastPrice?.tna)}</TableCell>
                 <TableCell className="text-center">{formatPercentage(flow.lastPrice?.ytm)}</TableCell>
                 <TableCell className="text-center">{formatDuration(flow.lastPrice?.duration_y)}</TableCell>
-                <TableCell className="text-center">{formatDate(flow.details?.fecha_vencimiento)}</TableCell>
-                <TableCell className="text-center">{flow.details?.moneda ?? "—"}</TableCell>
-                <TableCell className="text-center">{formatAmount(flow.details?.lamina_minima)}</TableCell>
-                <TableCell className="text-center">{formatAmount(flow.details?.monto_residual)}</TableCell>
+                <TableCell className="text-center">{formatDate(flow.details?.vencimiento)}</TableCell>
+                <TableCell className="text-center">{flow.details?.moneda_denom ?? "—"}</TableCell>
+                <TableCell className="text-center">{formatAmount(flow.details?.lamina_min)}</TableCell>
+                <TableCell className="text-center">{formatAmount(flow.details?.vr_vigente)}</TableCell>
               </TableRow>
             ))}
           </TableBody>

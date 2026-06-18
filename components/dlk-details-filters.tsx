@@ -153,7 +153,7 @@ export function DlkDetailsFilters({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Link2 className="h-5 w-5 text-purple-600" />
+          <Link2 className="h-5 w-5 text-lb-violet-accent" />
           Filtros - Dólar Linked
         </CardTitle>
       </CardHeader>

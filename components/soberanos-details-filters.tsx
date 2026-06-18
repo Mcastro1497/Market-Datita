@@ -153,7 +153,7 @@ export function SoberanosDetailsFilters({
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <DollarSign className="h-5 w-5 text-green-600" />
+          <DollarSign className="h-5 w-5 text-success" />
           Filtros - Soberanos Hard Dollar
         </CardTitle>
       </CardHeader>
