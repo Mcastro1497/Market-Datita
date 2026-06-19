@@ -95,17 +95,13 @@ export default function EquityPage() {
             <Loader2 className="h-5 w-5 animate-spin mr-2" /> Cargando...
           </div>
         ) : (
-          <Tabs defaultValue="cedears">
+          <Tabs defaultValue="mercado">
             <TabsList>
-              <TabsTrigger value="cedears">CEDEARs ({cedears.length})</TabsTrigger>
-              <TabsTrigger value="acciones">Acciones ARG ({acciones.length})</TabsTrigger>
+              <TabsTrigger value="mercado">Mercado ({rows.length})</TabsTrigger>
               <TabsTrigger value="paneles">Mis paneles</TabsTrigger>
             </TabsList>
-            <TabsContent value="cedears">
-              <MarketTable rows={cedears} label="CEDEARs" />
-            </TabsContent>
-            <TabsContent value="acciones">
-              <MarketTable rows={acciones} label="Acciones argentinas" />
+            <TabsContent value="mercado">
+              <MarketTable rows={rows} nAcc={acciones.length} nCed={cedears.length} />
             </TabsContent>
             <TabsContent value="paneles">
               <PanelsView all={rows} byTicker={byTicker} panels={panels} setPanels={setPanels} />
@@ -117,50 +113,73 @@ export default function EquityPage() {
   )
 }
 
-// ── Tabla de mercado (cedears / acciones) ──
-type SortKey = "ticker" | "last" | "var_diaria"
-function MarketTable({ rows, label }: { rows: Eq[]; label: string }) {
+// ── Tabla de mercado combinada (acciones + cedears) ──
+type SortKey = "ticker" | "tipo" | "last" | "closing_price" | "var_diaria"
+function MarketTable({ rows, nAcc, nCed }: { rows: Eq[]; nAcc: number; nCed: number }) {
   const [q, setQ] = useState("")
+  const [tipo, setTipo] = useState<"all" | "ACCION" | "CEDEAR">("all")
   const [sort, setSort] = useState<{ k: SortKey; dir: "asc" | "desc" }>({ k: "ticker", dir: "asc" })
 
   const data = useMemo(() => {
     const term = q.trim().toLowerCase()
-    const f = term ? rows.filter((r) => r.ticker.toLowerCase().includes(term)) : rows
+    const f = rows.filter(
+      (r) => (tipo === "all" || r.tipo === tipo) && (!term || r.ticker.toLowerCase().includes(term)),
+    )
     const arr = [...f].sort((a, b) => {
       const va = a[sort.k] as string | number | null
       const vb = b[sort.k] as string | number | null
-      if (typeof va === "number" || typeof vb === "number") return (Number(va ?? -Infinity)) - (Number(vb ?? -Infinity))
+      if (typeof va === "number" || typeof vb === "number") return Number(va ?? -Infinity) - Number(vb ?? -Infinity)
       return String(va).localeCompare(String(vb))
     })
     return sort.dir === "desc" ? arr.reverse() : arr
-  }, [rows, q, sort])
+  }, [rows, q, tipo, sort])
 
   const th = (k: SortKey, lbl: string, right = false) => (
-    <TableHead className={`cursor-pointer select-none ${right ? "text-right" : "text-center"}`}
-      onClick={() => setSort((s) => (s.k === k ? { k, dir: s.dir === "asc" ? "desc" : "asc" } : { k, dir: "asc" }))}>
+    <TableHead
+      className={`cursor-pointer select-none ${right ? "text-right" : "text-center"}`}
+      onClick={() => setSort((s) => (s.k === k ? { k, dir: s.dir === "asc" ? "desc" : "asc" } : { k, dir: "asc" }))}
+    >
       <span className={`inline-flex items-center gap-1 ${right ? "justify-end" : "justify-center"}`}>
         {lbl} <ArrowUpDown className={`h-3 w-3 ${sort.k === k ? "text-primary" : "text-muted-foreground/40"}`} />
       </span>
     </TableHead>
   )
 
+  const chip = (v: "all" | "ACCION" | "CEDEAR", lbl: string) => (
+    <button
+      onClick={() => setTipo(v)}
+      className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+        tipo === v ? "bg-primary/10 text-primary border-primary/30" : "text-muted-foreground hover:bg-muted"
+      }`}
+    >
+      {lbl}
+    </button>
+  )
+
   return (
     <Card>
       <CardHeader className="pb-3">
-        <CardTitle className="text-lg">{label}</CardTitle>
-        <CardDescription>{data.length} instrumentos</CardDescription>
-        <div className="relative max-w-xs pt-2">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input placeholder="Buscar ticker..." value={q} onChange={(e) => setQ(e.target.value)} className="pl-9" />
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="relative w-full max-w-xs">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input placeholder="Buscar ticker..." value={q} onChange={(e) => setQ(e.target.value)} className="pl-9" />
+          </div>
+          <div className="flex items-center gap-1.5">
+            {chip("all", `Todos (${nAcc + nCed})`)}
+            {chip("ACCION", `Acciones (${nAcc})`)}
+            {chip("CEDEAR", `CEDEARs (${nCed})`)}
+          </div>
         </div>
       </CardHeader>
       <CardContent>
-        <div className="rounded-md border overflow-auto max-h-[70vh]">
+        <div className="rounded-md border overflow-auto max-h-[72vh]">
           <Table>
             <TableHeader className="sticky top-0 bg-card z-10">
               <TableRow>
                 {th("ticker", "Ticker")}
+                {th("tipo", "Tipo")}
                 {th("last", "Último", true)}
+                {th("closing_price", "Cierre", true)}
                 {th("var_diaria", "Var. día", true)}
               </TableRow>
             </TableHeader>
@@ -168,7 +187,9 @@ function MarketTable({ rows, label }: { rows: Eq[]; label: string }) {
               {data.map((r) => (
                 <TableRow key={r.ticker}>
                   <TableCell className="text-center font-medium">{r.ticker}</TableCell>
+                  <TableCell className="text-center text-xs text-muted-foreground">{r.tipo}</TableCell>
                   <TableCell className="text-right font-mono tabular-nums">{fmtNum(r.last)}</TableCell>
+                  <TableCell className="text-right font-mono tabular-nums text-muted-foreground">{fmtNum(r.closing_price)}</TableCell>
                   <TableCell className={`text-right font-mono tabular-nums ${pctClass(r.var_diaria)}`}>
                     {fmtPct(r.var_diaria)}
                   </TableCell>
