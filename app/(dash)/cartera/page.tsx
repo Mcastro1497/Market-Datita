@@ -90,6 +90,7 @@ export default function CarteraPage() {
   const [flows, setFlows] = useState<FlowRow[]>([])
   const [period, setPeriod] = useState<Period>("mes")
   const [soloFuturos, setSoloFuturos] = useState(true)
+  const [dolarizar, setDolarizar] = useState(false)
   const [loading, setLoading] = useState(true)
   const [pickerOpen, setPickerOpen] = useState(false)
   const [hydrated, setHydrated] = useState(false)
@@ -208,6 +209,18 @@ export default function CarteraPage() {
     return { ars, usd, varDia: ayer > 0 ? ars / ayer - 1 : null }
   }, [valuations])
 
+  // Composición por categoría (Bonos / Acciones / CEDEARs)
+  const composicion = useMemo(() => {
+    const cat = (v: Val) => (v.kind === "bond" ? "Bonos" : v.tipo === "Acción" ? "Acciones" : "CEDEARs")
+    const m = new Map<string, number>()
+    for (const v of valuations) if (v.valARS != null) m.set(cat(v), (m.get(cat(v)) ?? 0) + v.valARS)
+    const tot = [...m.values()].reduce((a, b) => a + b, 0)
+    const colors: Record<string, string> = { Bonos: "var(--lb-violet)", Acciones: "var(--lb-violet-accent)", CEDEARs: "var(--lb-violet-compl)" }
+    return [...m.entries()]
+      .map(([k, val]) => ({ k, val, pct: tot > 0 ? val / tot : 0, color: colors[k] ?? "var(--muted-foreground)" }))
+      .sort((a, b) => b.val - a.val)
+  }, [valuations])
+
   // ── Flujo consolidado (bonos) ──
   const bondHoldingMap = useMemo(() => new Map(holdings.filter((h) => h.kind === "bond").map((h) => [h.symbol, h.qty])), [holdings])
   const blocks = useMemo<FlowBlock[]>(() => {
@@ -305,6 +318,28 @@ export default function CarteraPage() {
               <Metric label="MEP (AL30/AL30D)" value={mep ? `$ ${nf.format(mep)}` : "—"} />
             </div>
 
+            {/* Composición */}
+            {composicion.length > 0 && (
+              <div className="rounded-lg border bg-card p-4 space-y-2">
+                <p className="text-sm font-medium text-foreground">Composición</p>
+                <div className="flex h-3 w-full overflow-hidden rounded-full">
+                  {composicion.map((c) => (
+                    <div key={c.k} style={{ width: `${c.pct * 100}%`, background: c.color }} title={`${c.k} ${(c.pct * 100).toFixed(1)}%`} />
+                  ))}
+                </div>
+                <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs">
+                  {composicion.map((c) => (
+                    <span key={c.k} className="flex items-center gap-1.5">
+                      <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: c.color }} />
+                      <span className="text-muted-foreground">{c.k}</span>
+                      <span className="font-semibold text-foreground">{(c.pct * 100).toFixed(1)}%</span>
+                      <span className="text-muted-foreground">· $ {fmtArs(c.val)}</span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Tenencias */}
             <Card>
               <CardHeader className="pb-3">
@@ -360,6 +395,7 @@ export default function CarteraPage() {
                           <TableHead className="text-right">Precio</TableHead>
                           <TableHead className="text-right">Valor ARS</TableHead>
                           <TableHead className="text-right">Valor USD</TableHead>
+                          <TableHead className="text-right">Peso</TableHead>
                           <TableHead className="text-right">Var. día</TableHead>
                           <TableHead className="w-8"></TableHead>
                         </TableRow>
@@ -377,6 +413,9 @@ export default function CarteraPage() {
                             <TableCell className="text-right font-mono tabular-nums">{fmtArs(v.precioArs)}</TableCell>
                             <TableCell className="text-right font-mono tabular-nums">{fmtArs(v.valARS)}</TableCell>
                             <TableCell className="text-right font-mono tabular-nums text-muted-foreground">{fmtUsd(v.valUSD)}</TableCell>
+                            <TableCell className="text-right font-mono tabular-nums text-muted-foreground">
+                              {totales.ars > 0 && v.valARS != null ? `${((v.valARS / totales.ars) * 100).toFixed(1)}%` : "—"}
+                            </TableCell>
                             <TableCell className={`text-right font-mono tabular-nums ${pctClass(v.varPct)}`}>{fmtPct(v.varPct)}</TableCell>
                             <TableCell>
                               <button onClick={() => removeHolding(v.symbol, v.kind)} className="text-muted-foreground hover:text-destructive"><X className="h-4 w-4" /></button>
@@ -387,6 +426,7 @@ export default function CarteraPage() {
                           <TableCell colSpan={4}>Total</TableCell>
                           <TableCell className="text-right font-mono">$ {fmtArs(totales.ars)}</TableCell>
                           <TableCell className="text-right font-mono">US$ {fmtUsd(totales.usd)}</TableCell>
+                          <TableCell className="text-right font-mono">100%</TableCell>
                           <TableCell className={`text-right font-mono ${pctClass(totales.varDia)}`}>{fmtPct(totales.varDia)}</TableCell>
                           <TableCell></TableCell>
                         </TableRow>
@@ -409,6 +449,9 @@ export default function CarteraPage() {
                     <Button variant={soloFuturos ? "default" : "outline"} size="sm" onClick={() => setSoloFuturos((v) => !v)}>
                       {soloFuturos && <Check className="h-4 w-4" />} Solo futuros
                     </Button>
+                    <Button variant={dolarizar ? "default" : "outline"} size="sm" onClick={() => setDolarizar((v) => !v)} disabled={!mep}>
+                      {dolarizar && <Check className="h-4 w-4" />} Dolarizar (MEP)
+                    </Button>
                     <ToggleGroup type="single" value={period} onValueChange={(v) => v && setPeriod(v as Period)} variant="outline" size="sm">
                       <ToggleGroupItem value="fecha">Fecha</ToggleGroupItem>
                       <ToggleGroupItem value="mes">Mes</ToggleGroupItem>
@@ -425,12 +468,15 @@ export default function CarteraPage() {
                 ) : (
                   <Tabs defaultValue={blocks[0].id}>
                     <TabsList>{blocks.map((b) => <TabsTrigger key={b.id} value={b.id}>{b.label}</TabsTrigger>)}</TabsList>
-                    {blocks.map((b) => (
+                    {blocks.map((b) => {
+                      const sc = dolarizar && esPesos(b.currency) && mep ? 1 / mep : 1
+                      const dcur = dolarizar && esPesos(b.currency) && mep ? "USD" : b.currency
+                      return (
                       <TabsContent key={b.id} value={b.id} className="space-y-4">
                         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                          <Metric label="Interés" value={`${nf.format(b.totals.interes)} ${b.currency}`} />
-                          <Metric label="Amortización" value={`${nf.format(b.totals.amortizacion)} ${b.currency}`} />
-                          <Metric label="Total a cobrar" value={`${nf.format(b.totals.total)} ${b.currency}`} highlight />
+                          <Metric label="Interés" value={`${nf.format(b.totals.interes * sc)} ${dcur}`} />
+                          <Metric label="Amortización" value={`${nf.format(b.totals.amortizacion * sc)} ${dcur}`} />
+                          <Metric label="Total a cobrar" value={`${nf.format(b.totals.total * sc)} ${dcur}`} highlight />
                           <Metric label="Pagos" value={nf0.format(b.pagos)} />
                         </div>
                         <div className="rounded-md border overflow-hidden">
@@ -447,16 +493,16 @@ export default function CarteraPage() {
                               {b.rows.map((r) => (
                                 <TableRow key={r.key}>
                                   <TableCell className="font-medium">{r.label}</TableCell>
-                                  <TableCell className="text-right font-mono">{nf.format(r.interes)}</TableCell>
-                                  <TableCell className="text-right font-mono">{nf.format(r.amortizacion)}</TableCell>
-                                  <TableCell className="text-right font-mono font-semibold">{nf.format(r.total)}</TableCell>
+                                  <TableCell className="text-right font-mono">{nf.format(r.interes * sc)}</TableCell>
+                                  <TableCell className="text-right font-mono">{nf.format(r.amortizacion * sc)}</TableCell>
+                                  <TableCell className="text-right font-mono font-semibold">{nf.format(r.total * sc)}</TableCell>
                                 </TableRow>
                               ))}
                             </TableBody>
                           </Table>
                         </div>
                       </TabsContent>
-                    ))}
+                    )})}
                   </Tabs>
                 )}
               </CardContent>
