@@ -11,11 +11,13 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Plus, Trash2, Wallet, Loader2, Check, AlertTriangle } from "lucide-react"
+import { Plus, Trash2, Wallet, Loader2, Check, X } from "lucide-react"
 
-const STORAGE_KEY = "lb-cartera-v1"
+const STORAGE = "lb-carteras-v1"
+const OLD_KEY = "lb-cartera-v1"
 
 type Period = "fecha" | "mes" | "anio"
+type Kind = "bond" | "equity"
 
 type InstrumentLite = {
   symbol: string
@@ -23,59 +25,50 @@ type InstrumentLite = {
   emisor: string | null
   moneda_pago: string | null
   jurisdiccion_pago: string | null
-  lamina_min: number | null
   vencimiento: string | null
 }
-
+type PriceRow = {
+  symbol: string
+  last: number | null
+  price_ars: number | null
+  closing_price: number | null
+  change_pct: number | null
+  fx_mep: number | null
+}
+type Equity = { ticker: string; tipo: string | null; last: number | null; var_diaria: number | null }
 type FlowRow = {
   symbol: string
   fecha_pago: string
-  // base (unidades de cada instrumento; CER en unidades CER)
   interes: number | null
   amortizacion: number | null
   total: number | null
-  // proyectado en pesos (CER ajustado por coeficiente; resto = base)
   interes_proyectado: number | null
   amortizacion_proyectado: number | null
   total_proyectado: number | null
   moneda_pago: string | null
 }
+type Holding = { symbol: string; kind: Kind; qty: number }
+type Portfolio = { id: string; name: string; holdings: Holding[] }
 
-type Holding = { symbol: string; vn: number }
-
-const TYPE_LABEL: Record<string, string> = {
-  ON: "ON",
-  HD: "Soberano HD",
-  ARS: "Soberano ARS",
-  DLK: "Dólar Linked",
-}
-
-function typeLabel(t: string | null | undefined) {
-  if (t && TYPE_LABEL[t]) return TYPE_LABEL[t]
-  return t || "Bono"
-}
+const TYPE_LABEL: Record<string, string> = { ON: "ON", HD: "Soberano HD", ARS: "Soberano ARS", DLK: "Dólar Linked" }
+const typeLabel = (t: string | null | undefined) => (t && TYPE_LABEL[t]) || t || "Bono"
 
 const MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
-
 const nf = new Intl.NumberFormat("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 const nf0 = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 0 })
+const fmtArs = (v: number | null | undefined) => (v == null ? "—" : nf0.format(v))
+const fmtUsd = (v: number | null | undefined) => (v == null ? "—" : nf.format(v))
+const fmtPct = (v: number | null | undefined) => (v == null ? "—" : `${(v * 100).toFixed(2)}%`)
+const pctClass = (v: number | null | undefined) =>
+  v == null ? "text-muted-foreground" : v > 0 ? "text-success" : v < 0 ? "text-destructive" : "text-muted-foreground"
 
-function normCurrency(c: string | null | undefined) {
-  return (c || "—").trim().toUpperCase()
-}
+const normCurrency = (c: string | null | undefined) => (c || "—").trim().toUpperCase()
+const esPesos = (cur: string) => cur.includes("ARS") || cur.includes("PES") || cur === "$"
 
-// En pesos la jurisdicción siempre es Argentina (no se muestra). En USD puede
-// ser Argentina o Nueva York, así que ahí sí separamos por jurisdicción.
-function esPesos(cur: string) {
-  return cur.includes("ARS") || cur.includes("PES") || cur === "$"
-}
-
-// fecha_pago llega como "YYYY-MM-DD"; agrupamos por substring para evitar líos de timezone
 function periodKey(iso: string, period: Period): { key: string; label: string } {
   if (period === "anio") return { key: iso.slice(0, 4), label: iso.slice(0, 4) }
   if (period === "mes") {
-    const y = iso.slice(0, 4)
-    const m = Number(iso.slice(5, 7))
+    const y = iso.slice(0, 4), m = Number(iso.slice(5, 7))
     return { key: iso.slice(0, 7), label: `${MESES[m - 1] ?? "?"} ${y}` }
   }
   const [y, m, d] = iso.split("-")
@@ -84,481 +77,402 @@ function periodKey(iso: string, period: Period): { key: string; label: string } 
 
 type Agg = { interes: number; amortizacion: number; total: number }
 type Row = Agg & { key: string; label: string }
-type FlowBlock = {
-  id: string
-  currency: string
-  jurisdiccion: string | null
-  label: string
-  rows: Row[]
-  totals: Agg
-  pagos: number
-}
+type FlowBlock = { id: string; currency: string; jurisdiccion: string | null; label: string; rows: Row[]; totals: Agg; pagos: number }
 
 export default function CarteraPage() {
   const supabase = useMemo(() => createClient(), [])
 
+  const [portfolios, setPortfolios] = useState<Portfolio[]>([])
+  const [activeId, setActiveId] = useState<string | null>(null)
   const [instruments, setInstruments] = useState<InstrumentLite[]>([])
-  const [holdings, setHoldings] = useState<Holding[]>([])
+  const [equities, setEquities] = useState<Equity[]>([])
+  const [prices, setPrices] = useState<PriceRow[]>([])
   const [flows, setFlows] = useState<FlowRow[]>([])
   const [period, setPeriod] = useState<Period>("mes")
-  const [loadingInstr, setLoadingInstr] = useState(true)
-  const [loadingFlows, setLoadingFlows] = useState(false)
-  const [pickerOpen, setPickerOpen] = useState(false)
   const [soloFuturos, setSoloFuturos] = useState(true)
+  const [loading, setLoading] = useState(true)
+  const [pickerOpen, setPickerOpen] = useState(false)
   const [hydrated, setHydrated] = useState(false)
 
-  // ── Cargar / persistir cartera en localStorage ──
+  const active = portfolios.find((p) => p.id === activeId) ?? portfolios[0] ?? null
+  const holdings = active?.holdings ?? []
+
+  // ── localStorage (con migración de la cartera vieja) ──
   useEffect(() => {
     try {
-      const raw = localStorage.getItem(STORAGE_KEY)
-      if (raw) setHoldings(JSON.parse(raw))
-    } catch {
-      /* ignore */
-    }
+      const raw = localStorage.getItem(STORAGE)
+      if (raw) {
+        const ps = JSON.parse(raw) as Portfolio[]
+        setPortfolios(ps)
+        setActiveId(ps[0]?.id ?? null)
+      } else {
+        const old = localStorage.getItem(OLD_KEY)
+        const oldHoldings = old ? (JSON.parse(old) as { symbol: string; vn: number }[]) : []
+        const id = "p1"
+        setPortfolios([{ id, name: "Cartera 1", holdings: oldHoldings.map((h) => ({ symbol: h.symbol, kind: "bond" as Kind, qty: h.vn })) }])
+        setActiveId(id)
+      }
+    } catch {}
     setHydrated(true)
   }, [])
-
   useEffect(() => {
-    if (!hydrated) return
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(holdings))
-    } catch {
-      /* ignore */
-    }
-  }, [holdings, hydrated])
+    if (hydrated) { try { localStorage.setItem(STORAGE, JSON.stringify(portfolios)) } catch {} }
+  }, [portfolios, hydrated])
 
-  // ── Traer instrumentos (bonos con flujos) ──
+  // ── Data: instrumentos, equities, precios ──
   useEffect(() => {
     let cancel = false
     ;(async () => {
-      setLoadingInstr(true)
+      setLoading(true)
       try {
-        // Traemos todos los bonos activos (todo menos FX, que es el dólar y no tiene cupones).
-        // No filtramos por instrument_type porque los soberanos ARS no están tipados "ARS"
-        // (se identifican por moneda_pago), así que con .neq("FX") entran ON/HD/ARS/DLK.
-        const { data, error } = await supabase
-          .from("instruments_v2")
-          .select("symbol, instrument_type, emisor, moneda_pago, jurisdiccion_pago, lamina_min, vencimiento")
-          .or("instrument_type.neq.FX,instrument_type.is.null")
-          .eq("is_active", true)
-        if (!cancel && !error && data) {
-          setInstruments(
-            (data as InstrumentLite[]).slice().sort((a, b) => a.symbol.localeCompare(b.symbol)),
-          )
+        const [insR, eqR, prR] = await Promise.all([
+          supabase.from("instruments_v2")
+            .select("symbol, instrument_type, emisor, moneda_pago, jurisdiccion_pago, vencimiento")
+            .or("instrument_type.neq.FX,instrument_type.is.null").eq("is_active", true),
+          supabase.from("acciones_cedears").select("ticker, tipo, last, var_diaria"),
+          supabase.from("prices").select("symbol, last, price_ars, closing_price, change_pct, fx_mep"),
+        ])
+        if (!cancel) {
+          if (insR.data) setInstruments((insR.data as InstrumentLite[]).slice().sort((a, b) => a.symbol.localeCompare(b.symbol)))
+          if (eqR.data) setEquities((eqR.data as Equity[]).slice().sort((a, b) => a.ticker.localeCompare(b.ticker)))
+          if (prR.data) setPrices(prR.data as PriceRow[])
         }
-      } catch {
-        /* sin env / sin datos */
-      } finally {
-        if (!cancel) setLoadingInstr(false)
+      } catch {} finally {
+        if (!cancel) setLoading(false)
       }
     })()
-    return () => {
-      cancel = true
-    }
+    return () => { cancel = true }
   }, [supabase])
 
-  // ── Traer flujos de los símbolos de la cartera (paginado) ──
-  const symbolsKey = holdings.map((h) => h.symbol).sort().join(",")
+  const instrumentMap = useMemo(() => new Map(instruments.map((i) => [i.symbol, i])), [instruments])
+  const equityMap = useMemo(() => new Map(equities.map((e) => [e.ticker, e])), [equities])
+  const priceMap = useMemo(() => new Map(prices.map((p) => [p.symbol, p])), [prices])
+  const mep = useMemo(() => {
+    const al30 = priceMap.get("AL30")
+    if (al30?.fx_mep) return al30.fx_mep
+    for (const p of prices) if (p.fx_mep) return p.fx_mep
+    return null
+  }, [priceMap, prices])
+
+  // ── Flujos de los bonos de la cartera activa ──
+  const bondSymbolsKey = holdings.filter((h) => h.kind === "bond").map((h) => h.symbol).sort().join(",")
   useEffect(() => {
-    const symbols = symbolsKey ? symbolsKey.split(",") : []
-    if (symbols.length === 0) {
-      setFlows([])
-      return
-    }
+    const symbols = bondSymbolsKey ? bondSymbolsKey.split(",") : []
+    if (symbols.length === 0) { setFlows([]); return }
     let cancel = false
     ;(async () => {
-      setLoadingFlows(true)
       let all: FlowRow[] = []
       try {
-        let start = 0
-        const batch = 1000
+        let start = 0; const batch = 1000
         while (true) {
-          const { data, error } = await supabase
-            .from("instrument_flows_v3")
+          const { data, error } = await supabase.from("instrument_flows_v3")
             .select("symbol, fecha_pago, interes, amortizacion, total, interes_proyectado, amortizacion_proyectado, total_proyectado, moneda_pago")
-            .in("symbol", symbols)
-            .order("fecha_pago", { ascending: true })
-            .range(start, start + batch - 1)
+            .in("symbol", symbols).order("fecha_pago", { ascending: true }).range(start, start + batch - 1)
           if (error || !data || data.length === 0) break
           all = all.concat(data as FlowRow[])
           if (data.length < batch) break
           start += batch
         }
-      } catch {
-        /* sin env / sin datos */
-      } finally {
-        if (!cancel) {
-          setFlows(all)
-          setLoadingFlows(false)
-        }
+      } catch {} finally {
+        if (!cancel) setFlows(all)
       }
     })()
-    return () => {
-      cancel = true
+    return () => { cancel = true }
+  }, [supabase, bondSymbolsKey])
+
+  // ── Valuación por tenencia ──
+  type Val = { symbol: string; kind: Kind; nombre: string; tipo: string; qty: number; precioArs: number | null; valARS: number | null; valUSD: number | null; varPct: number | null }
+  const valuations = useMemo<Val[]>(() => {
+    return holdings.map((h) => {
+      if (h.kind === "bond") {
+        const i = instrumentMap.get(h.symbol)
+        const p = priceMap.get(h.symbol)
+        const arsPer100 = p?.price_ars ?? (p?.last != null && mep ? p.last * mep : null)
+        const valARS = arsPer100 != null ? arsPer100 * (h.qty / 100) : null
+        return { symbol: h.symbol, kind: h.kind, nombre: h.symbol, tipo: typeLabel(i?.instrument_type), qty: h.qty,
+          precioArs: arsPer100, valARS, valUSD: valARS != null && mep ? valARS / mep : null, varPct: p?.change_pct ?? null }
+      }
+      const e = equityMap.get(h.symbol)
+      const valARS = e?.last != null ? e.last * h.qty : null
+      return { symbol: h.symbol, kind: h.kind, nombre: h.symbol, tipo: e?.tipo === "ACCION" ? "Acción" : "CEDEAR", qty: h.qty,
+        precioArs: e?.last ?? null, valARS, valUSD: valARS != null && mep ? valARS / mep : null, varPct: e?.var_diaria ?? null }
+    })
+  }, [holdings, instrumentMap, priceMap, equityMap, mep])
+
+  const totales = useMemo(() => {
+    let ars = 0, usd = 0, ayer = 0
+    for (const v of valuations) {
+      if (v.valARS != null) { ars += v.valARS; ayer += v.valARS / (1 + (v.varPct ?? 0)) }
+      if (v.valUSD != null) usd += v.valUSD
     }
-  }, [supabase, symbolsKey])
+    return { ars, usd, varDia: ayer > 0 ? ars / ayer - 1 : null }
+  }, [valuations])
 
-  const instrumentMap = useMemo(() => {
-    const m = new Map<string, InstrumentLite>()
-    instruments.forEach((i) => m.set(i.symbol, i))
-    return m
-  }, [instruments])
-
-  const holdingMap = useMemo(() => {
-    const m = new Map<string, number>()
-    holdings.forEach((h) => m.set(h.symbol, h.vn))
-    return m
-  }, [holdings])
-
-  const available = useMemo(
-    () => instruments.filter((i) => !holdingMap.has(i.symbol)),
-    [instruments, holdingMap],
-  )
-
-  // Estado de cada símbolo: cuántos flujos tiene y cuántos a futuro (para avisar
-  // por qué un bono no valúa: sin flujos cargados o sin pagos futuros).
-  const flowStatus = useMemo(() => {
-    const today = new Date().toISOString().slice(0, 10)
-    const m = new Map<string, { total: number; futuros: number }>()
-    for (const f of flows) {
-      const s = m.get(f.symbol) ?? { total: 0, futuros: 0 }
-      s.total += 1
-      if (f.fecha_pago >= today) s.futuros += 1
-      m.set(f.symbol, s)
-    }
-    return m
-  }, [flows])
-
-  // ── Flujo consolidado por moneda (+ jurisdicción en USD) y período ──
+  // ── Flujo consolidado (bonos) ──
+  const bondHoldingMap = useMemo(() => new Map(holdings.filter((h) => h.kind === "bond").map((h) => [h.symbol, h.qty])), [holdings])
   const blocks = useMemo<FlowBlock[]>(() => {
     const today = new Date().toISOString().slice(0, 10)
     type Acc = { currency: string; jurisdiccion: string | null; rows: Map<string, Row> }
     const byBlock = new Map<string, Acc>()
-
     for (const f of flows) {
-      const vn = holdingMap.get(f.symbol)
+      const vn = bondHoldingMap.get(f.symbol)
       if (!vn || !f.fecha_pago) continue
       if (soloFuturos && f.fecha_pago < today) continue
       const scale = vn / 100
       const instr = instrumentMap.get(f.symbol)
       const cur = normCurrency(f.moneda_pago ?? instr?.moneda_pago)
-      // jurisdicción solo aplica en USD; en pesos siempre es Argentina
       const juris = esPesos(cur) ? null : instr?.jurisdiccion_pago?.trim() || null
       const blockId = juris ? `${cur}||${juris}` : cur
-
       let acc = byBlock.get(blockId)
-      if (!acc) {
-        acc = { currency: cur, jurisdiccion: juris, rows: new Map() }
-        byBlock.set(blockId, acc)
-      }
+      if (!acc) { acc = { currency: cur, jurisdiccion: juris, rows: new Map() }; byBlock.set(blockId, acc) }
       const { key, label } = periodKey(f.fecha_pago, period)
       let row = acc.rows.get(key)
-      if (!row) {
-        row = { key, label, interes: 0, amortizacion: 0, total: 0 }
-        acc.rows.set(key, row)
-      }
-      // Usa el flujo proyectado en pesos (CER ajustado); fallback al base
+      if (!row) { row = { key, label, interes: 0, amortizacion: 0, total: 0 }; acc.rows.set(key, row) }
       row.interes += (f.interes_proyectado ?? f.interes ?? 0) * scale
       row.amortizacion += (f.amortizacion_proyectado ?? f.amortizacion ?? 0) * scale
       row.total += (f.total_proyectado ?? f.total ?? 0) * scale
     }
+    return Array.from(byBlock.values()).map((acc) => {
+      const rows = Array.from(acc.rows.values()).sort((a, b) => a.key.localeCompare(b.key))
+      const totals = rows.reduce<Agg>((a, r) => ({ interes: a.interes + r.interes, amortizacion: a.amortizacion + r.amortizacion, total: a.total + r.total }), { interes: 0, amortizacion: 0, total: 0 })
+      const label = acc.jurisdiccion ? `${acc.currency} · ${acc.jurisdiccion}` : acc.currency
+      return { id: label, currency: acc.currency, jurisdiccion: acc.jurisdiccion, label, rows, totals, pagos: rows.length }
+    }).sort((a, b) => a.label.localeCompare(b.label))
+  }, [flows, bondHoldingMap, instrumentMap, period, soloFuturos])
 
-    return Array.from(byBlock.entries())
-      .map(([id, acc]) => {
-        const rows = Array.from(acc.rows.values()).sort((a, b) => a.key.localeCompare(b.key))
-        const totals = rows.reduce<Agg>(
-          (a, r) => ({
-            interes: a.interes + r.interes,
-            amortizacion: a.amortizacion + r.amortizacion,
-            total: a.total + r.total,
-          }),
-          { interes: 0, amortizacion: 0, total: 0 },
-        )
-        const label = acc.jurisdiccion ? `${acc.currency} · ${acc.jurisdiccion}` : acc.currency
-        return { id, currency: acc.currency, jurisdiccion: acc.jurisdiccion, label, rows, totals, pagos: rows.length }
-      })
-      .sort((a, b) => a.label.localeCompare(b.label))
-  }, [flows, holdingMap, instrumentMap, period, soloFuturos])
-
-  const addHolding = (symbol: string) => {
-    setHoldings((prev) => (prev.some((h) => h.symbol === symbol) ? prev : [...prev, { symbol, vn: 100000 }]))
+  // ── Mutaciones ──
+  const updateActive = (fn: (p: Portfolio) => Portfolio) =>
+    setPortfolios((ps) => ps.map((p) => (p.id === active?.id ? fn(p) : p)))
+  const addHolding = (symbol: string, kind: Kind) => {
+    updateActive((p) => (p.holdings.some((h) => h.symbol === symbol && h.kind === kind) ? p
+      : { ...p, holdings: [...p.holdings, { symbol, kind, qty: kind === "bond" ? 100000 : 100 }] }))
     setPickerOpen(false)
   }
-  const removeHolding = (symbol: string) =>
-    setHoldings((prev) => prev.filter((h) => h.symbol !== symbol))
-  const setVn = (symbol: string, vn: number) =>
-    setHoldings((prev) => prev.map((h) => (h.symbol === symbol ? { ...h, vn } : h)))
+  const removeHolding = (symbol: string, kind: Kind) =>
+    updateActive((p) => ({ ...p, holdings: p.holdings.filter((h) => !(h.symbol === symbol && h.kind === kind)) }))
+  const setQty = (symbol: string, kind: Kind, qty: number) =>
+    updateActive((p) => ({ ...p, holdings: p.holdings.map((h) => (h.symbol === symbol && h.kind === kind ? { ...h, qty } : h)) }))
+
+  const nuevaCartera = () => {
+    const id = `${Date.now()}`
+    setPortfolios((ps) => [...ps, { id, name: `Cartera ${ps.length + 1}`, holdings: [] }])
+    setActiveId(id)
+  }
+  const borrarCartera = (id: string) => {
+    setPortfolios((ps) => ps.filter((p) => p.id !== id))
+    if (activeId === id) setActiveId(portfolios.find((p) => p.id !== id)?.id ?? null)
+  }
+  const renombrar = (id: string, name: string) => setPortfolios((ps) => ps.map((p) => (p.id === id ? { ...p, name } : p)))
+
+  const heldKeys = new Set(holdings.map((h) => `${h.kind}:${h.symbol}`))
+  const bonosDisp = instruments.filter((i) => !heldKeys.has(`bond:${i.symbol}`))
+  const eqDisp = equities.filter((e) => !heldKeys.has(`equity:${e.ticker}`))
 
   return (
     <div className="min-h-screen bg-background p-4">
-      <div className="max-w-7xl mx-auto space-y-6">
+      <div className="max-w-6xl mx-auto space-y-6">
         <div className="bg-card rounded-lg shadow-sm border p-6">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-primary/10">
-              <Wallet className="h-6 w-6 text-primary" />
-            </div>
+            <div className="p-2 rounded-lg bg-primary/10"><Wallet className="h-6 w-6 text-primary" /></div>
             <div>
-              <h1 className="text-3xl font-bold text-foreground">Cartera</h1>
-              <p className="text-muted-foreground">
-                Armá una cartera de bonos por valor nominal y mirá el flujo de pagos consolidado por moneda
-              </p>
+              <h1 className="text-3xl font-bold text-foreground">Carteras</h1>
+              <p className="text-muted-foreground">Bonos, acciones y CEDEARs — valor hoy y variación del día en ARS y USD (MEP)</p>
             </div>
+          </div>
+          {/* selector de carteras */}
+          <div className="flex flex-wrap items-center gap-1.5 mt-4">
+            {portfolios.map((p) => (
+              <button key={p.id} onClick={() => setActiveId(p.id)}
+                className={`rounded-full border px-3 py-1 text-xs font-medium transition ${active?.id === p.id ? "bg-primary/10 text-primary border-primary/30" : "text-muted-foreground hover:bg-muted"}`}>
+                {p.name}
+              </button>
+            ))}
+            <Button variant="outline" size="sm" onClick={nuevaCartera} className="h-7 gap-1"><Plus className="h-3.5 w-3.5" /> Nueva</Button>
           </div>
         </div>
 
-        <div className="grid lg:grid-cols-[380px_1fr] gap-6 items-start">
-          {/* ── Constructor de cartera ── */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-lg">Instrumentos</CardTitle>
-              <CardDescription>
-                {holdings.length} {holdings.length === 1 ? "bono" : "bonos"} · valor nominal (VN)
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full justify-start" disabled={loadingInstr}>
-                    {loadingInstr ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Plus className="h-4 w-4" />
-                    )}
-                    Agregar bono
+        {loading ? (
+          <div className="flex items-center justify-center py-20 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin mr-2" /> Cargando...</div>
+        ) : !active ? (
+          <p className="text-center text-muted-foreground py-16">Creá una cartera para empezar.</p>
+        ) : (
+          <>
+            {/* Totales */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <Metric label="Valor (ARS)" value={`$ ${fmtArs(totales.ars)}`} highlight />
+              <Metric label="Valor (USD)" value={`US$ ${fmtUsd(totales.usd)}`} highlight />
+              <Metric label="Var. del día" value={fmtPct(totales.varDia)} cls={pctClass(totales.varDia)} />
+              <Metric label="MEP (AL30/AL30D)" value={mep ? `$ ${nf.format(mep)}` : "—"} />
+            </div>
+
+            {/* Tenencias */}
+            <Card>
+              <CardHeader className="pb-3">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Input value={active.name} onChange={(e) => renombrar(active.id, e.target.value)} className="h-8 w-40" />
+                    <Popover open={pickerOpen} onOpenChange={setPickerOpen}>
+                      <PopoverTrigger asChild>
+                        <Button variant="outline" size="sm" className="h-8 gap-1"><Plus className="h-4 w-4" /> Agregar activo</Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="p-0 w-80" align="start">
+                        <Command>
+                          <CommandInput placeholder="Buscar bono, acción o CEDEAR..." />
+                          <CommandList>
+                            <CommandEmpty>Sin resultados.</CommandEmpty>
+                            <CommandGroup heading="Bonos">
+                              {bonosDisp.map((i) => (
+                                <CommandItem key={`b-${i.symbol}`} value={`${i.symbol} ${i.emisor ?? ""}`} onSelect={() => addHolding(i.symbol, "bond")}>
+                                  <span className="font-medium">{i.symbol}</span>
+                                  <span className="ml-2 text-xs text-muted-foreground">{typeLabel(i.instrument_type)}</span>
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                            <CommandGroup heading="Acciones / CEDEARs">
+                              {eqDisp.map((e) => (
+                                <CommandItem key={`e-${e.ticker}`} value={e.ticker} onSelect={() => addHolding(e.ticker, "equity")}>
+                                  <span className="font-medium">{e.ticker}</span>
+                                  <span className="ml-2 text-xs text-muted-foreground">{e.tipo === "ACCION" ? "Acción" : "CEDEAR"}</span>
+                                </CommandItem>
+                              ))}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  <Button variant="ghost" size="sm" className="h-8 gap-1 text-muted-foreground hover:text-destructive" onClick={() => borrarCartera(active.id)}>
+                    <Trash2 className="h-4 w-4" /> Borrar cartera
                   </Button>
-                </PopoverTrigger>
-                <PopoverContent className="p-0 w-[360px]" align="start">
-                  <Command>
-                    <CommandInput placeholder="Buscar por ticker o emisor..." />
-                    <CommandList>
-                      <CommandEmpty>Sin resultados.</CommandEmpty>
-                      <CommandGroup>
-                        {available.map((i) => (
-                          <CommandItem
-                            key={i.symbol}
-                            value={`${i.symbol} ${i.emisor ?? ""}`}
-                            onSelect={() => addHolding(i.symbol)}
-                          >
-                            <div className="flex items-center justify-between w-full gap-2">
-                              <span className="font-medium">{i.symbol}</span>
-                              <span className="text-xs text-muted-foreground truncate">
-                                {typeLabel(i.instrument_type)}
-                                {i.moneda_pago ? ` · ${normCurrency(i.moneda_pago)}` : ""}
-                              </span>
-                            </div>
-                          </CommandItem>
+                </div>
+              </CardHeader>
+              <CardContent>
+                {holdings.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-10">Agregá bonos, acciones o CEDEARs con &ldquo;Agregar activo&rdquo;.</p>
+                ) : (
+                  <div className="rounded-md border overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Activo</TableHead>
+                          <TableHead>Tipo</TableHead>
+                          <TableHead className="text-right">Cantidad / VN</TableHead>
+                          <TableHead className="text-right">Precio</TableHead>
+                          <TableHead className="text-right">Valor ARS</TableHead>
+                          <TableHead className="text-right">Valor USD</TableHead>
+                          <TableHead className="text-right">Var. día</TableHead>
+                          <TableHead className="w-8"></TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {valuations.map((v) => (
+                          <TableRow key={`${v.kind}:${v.symbol}`}>
+                            <TableCell className="font-medium">{v.nombre}</TableCell>
+                            <TableCell className="text-xs text-muted-foreground">{v.tipo}</TableCell>
+                            <TableCell className="text-right">
+                              <Input type="number" inputMode="numeric" min={0} value={Number.isFinite(v.qty) ? v.qty : 0}
+                                onChange={(e) => setQty(v.symbol, v.kind, Number(e.target.value))}
+                                className="h-7 w-28 font-mono text-right ml-auto" />
+                            </TableCell>
+                            <TableCell className="text-right font-mono tabular-nums">{fmtArs(v.precioArs)}</TableCell>
+                            <TableCell className="text-right font-mono tabular-nums">{fmtArs(v.valARS)}</TableCell>
+                            <TableCell className="text-right font-mono tabular-nums text-muted-foreground">{fmtUsd(v.valUSD)}</TableCell>
+                            <TableCell className={`text-right font-mono tabular-nums ${pctClass(v.varPct)}`}>{fmtPct(v.varPct)}</TableCell>
+                            <TableCell>
+                              <button onClick={() => removeHolding(v.symbol, v.kind)} className="text-muted-foreground hover:text-destructive"><X className="h-4 w-4" /></button>
+                            </TableCell>
+                          </TableRow>
                         ))}
-                      </CommandGroup>
-                    </CommandList>
-                  </Command>
-                </PopoverContent>
-              </Popover>
+                        <TableRow className="bg-muted/40 font-semibold">
+                          <TableCell colSpan={4}>Total</TableCell>
+                          <TableCell className="text-right font-mono">$ {fmtArs(totales.ars)}</TableCell>
+                          <TableCell className="text-right font-mono">US$ {fmtUsd(totales.usd)}</TableCell>
+                          <TableCell className={`text-right font-mono ${pctClass(totales.varDia)}`}>{fmtPct(totales.varDia)}</TableCell>
+                          <TableCell></TableCell>
+                        </TableRow>
+                      </TableBody>
+                    </Table>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
 
-              {holdings.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-6">
-                  Todavía no agregaste bonos. Empezá con &ldquo;Agregar bono&rdquo;.
-                </p>
-              ) : (
-                <div className="space-y-2">
-                  {holdings.map((h) => {
-                    const i = instrumentMap.get(h.symbol)
-                    const st = flowStatus.get(h.symbol)
-                    const sinVn = !(h.vn > 0)
-                    const sinFlujos = !loadingFlows && (!st || st.total === 0)
-                    const sinFuturos = !loadingFlows && !sinFlujos && soloFuturos && st!.futuros === 0
-                    // tab donde cae este bono (moneda + jurisdicción en USD)
-                    const cur = normCurrency(i?.moneda_pago)
-                    const juris = esPesos(cur) ? null : i?.jurisdiccion_pago?.trim() || null
-                    const destLabel = juris ? `${cur} · ${juris}` : cur
-                    return (
-                      <div key={h.symbol} className="rounded-md border p-3 space-y-2">
-                        <div className="flex items-center justify-between gap-2">
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="font-semibold">{h.symbol}</span>
-                              {i && (
-                                <Badge variant="secondary" className="text-[10px]">
-                                  {typeLabel(i.instrument_type)}
-                                </Badge>
-                              )}
-                              {i?.moneda_pago && (
-                                <Badge variant="outline" className="text-[10px]">
-                                  {normCurrency(i.moneda_pago)}
-                                </Badge>
-                              )}
-                            </div>
-                            {i?.emisor && (
-                              <p className="text-xs text-muted-foreground truncate">{i.emisor}</p>
-                            )}
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 text-muted-foreground hover:text-destructive shrink-0"
-                            onClick={() => removeHolding(h.symbol)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <label className="text-xs text-muted-foreground w-8">VN</label>
-                          <Input
-                            type="number"
-                            inputMode="numeric"
-                            min={0}
-                            value={Number.isFinite(h.vn) ? h.vn : 0}
-                            onChange={(e) => setVn(h.symbol, Number(e.target.value))}
-                            className="h-8 font-mono text-right"
-                          />
-                        </div>
-                        {sinVn ? (
-                          <p className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                            <AlertTriangle className="h-3 w-3 shrink-0" /> Cargá un VN mayor a 0
-                          </p>
-                        ) : sinFlujos ? (
-                          <p className="flex items-center gap-1 text-[11px] text-destructive">
-                            <AlertTriangle className="h-3 w-3 shrink-0" /> Sin flujos cargados — no valúa
-                          </p>
-                        ) : sinFuturos ? (
-                          <p className="flex items-center gap-1 text-[11px] text-muted-foreground">
-                            <AlertTriangle className="h-3 w-3 shrink-0" /> Sin pagos futuros (¿vencido?)
-                          </p>
-                        ) : st ? (
-                          <p className="text-[11px] text-muted-foreground">
-                            {soloFuturos ? `${st.futuros} pagos futuros` : `${st.total} pagos`} → {destLabel}
-                          </p>
-                        ) : null}
-                      </div>
-                    )
-                  })}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    className="w-full text-muted-foreground hover:text-destructive"
-                    onClick={() => setHoldings([])}
-                  >
-                    Vaciar cartera
-                  </Button>
+            {/* Flujo de fondos (bonos) */}
+            <Card>
+              <CardHeader>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <CardTitle className="text-lg">Flujo de fondos</CardTitle>
+                    <CardDescription>Consolidado de los bonos de la cartera, separado por moneda</CardDescription>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button variant={soloFuturos ? "default" : "outline"} size="sm" onClick={() => setSoloFuturos((v) => !v)}>
+                      {soloFuturos && <Check className="h-4 w-4" />} Solo futuros
+                    </Button>
+                    <ToggleGroup type="single" value={period} onValueChange={(v) => v && setPeriod(v as Period)} variant="outline" size="sm">
+                      <ToggleGroupItem value="fecha">Fecha</ToggleGroupItem>
+                      <ToggleGroupItem value="mes">Mes</ToggleGroupItem>
+                      <ToggleGroupItem value="anio">Año</ToggleGroupItem>
+                    </ToggleGroup>
+                  </div>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* ── Flujo consolidado ── */}
-          <Card>
-            <CardHeader>
-              <div className="flex flex-wrap items-center justify-between gap-3">
-                <div>
-                  <CardTitle className="text-lg">Flujo de pagos</CardTitle>
-                  <CardDescription>Consolidado de la cartera, separado por moneda de pago</CardDescription>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant={soloFuturos ? "default" : "outline"}
-                    size="sm"
-                    onClick={() => setSoloFuturos((v) => !v)}
-                  >
-                    {soloFuturos && <Check className="h-4 w-4" />}
-                    Solo futuros
-                  </Button>
-                  <ToggleGroup
-                    type="single"
-                    value={period}
-                    onValueChange={(v) => v && setPeriod(v as Period)}
-                    variant="outline"
-                    size="sm"
-                  >
-                    <ToggleGroupItem value="fecha">Fecha</ToggleGroupItem>
-                    <ToggleGroupItem value="mes">Mes</ToggleGroupItem>
-                    <ToggleGroupItem value="anio">Año</ToggleGroupItem>
-                  </ToggleGroup>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {loadingFlows ? (
-                <div className="flex items-center justify-center py-16 text-muted-foreground">
-                  <Loader2 className="h-5 w-5 animate-spin mr-2" /> Calculando flujo...
-                </div>
-              ) : blocks.length === 0 ? (
-                <p className="text-sm text-muted-foreground text-center py-16">
-                  {holdings.length === 0
-                    ? "Agregá bonos a la cartera para ver el flujo de pagos."
-                    : "No hay flujos para mostrar con la configuración actual."}
-                </p>
-              ) : (
-                <Tabs defaultValue={blocks[0].id}>
-                  <TabsList>
+              </CardHeader>
+              <CardContent>
+                {blocks.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-12">
+                    {bondHoldingMap.size === 0 ? "Agregá bonos para ver el flujo de fondos." : "No hay flujos para mostrar con la configuración actual."}
+                  </p>
+                ) : (
+                  <Tabs defaultValue={blocks[0].id}>
+                    <TabsList>{blocks.map((b) => <TabsTrigger key={b.id} value={b.id}>{b.label}</TabsTrigger>)}</TabsList>
                     {blocks.map((b) => (
-                      <TabsTrigger key={b.id} value={b.id}>
-                        {b.label}
-                      </TabsTrigger>
-                    ))}
-                  </TabsList>
-                  {blocks.map((b) => (
-                    <TabsContent key={b.id} value={b.id} className="space-y-4">
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                        <Summary label="Interés" value={b.totals.interes} cur={b.currency} />
-                        <Summary label="Amortización" value={b.totals.amortizacion} cur={b.currency} />
-                        <Summary label="Total a cobrar" value={b.totals.total} cur={b.currency} highlight />
-                        <Summary label="Pagos" value={b.pagos} count />
-                      </div>
-                      <div className="rounded-md border overflow-hidden">
-                        <Table>
-                          <TableHeader>
-                            <TableRow>
-                              <TableHead>{period === "anio" ? "Año" : period === "mes" ? "Mes" : "Fecha"}</TableHead>
-                              <TableHead className="text-right">Interés</TableHead>
-                              <TableHead className="text-right">Amortización</TableHead>
-                              <TableHead className="text-right">Total</TableHead>
-                            </TableRow>
-                          </TableHeader>
-                          <TableBody>
-                            {b.rows.map((r) => (
-                              <TableRow key={r.key}>
-                                <TableCell className="font-medium">{r.label}</TableCell>
-                                <TableCell className="text-right font-mono">{nf.format(r.interes)}</TableCell>
-                                <TableCell className="text-right font-mono">{nf.format(r.amortizacion)}</TableCell>
-                                <TableCell className="text-right font-mono font-semibold">
-                                  {nf.format(r.total)}
-                                </TableCell>
+                      <TabsContent key={b.id} value={b.id} className="space-y-4">
+                        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                          <Metric label="Interés" value={`${nf.format(b.totals.interes)} ${b.currency}`} />
+                          <Metric label="Amortización" value={`${nf.format(b.totals.amortizacion)} ${b.currency}`} />
+                          <Metric label="Total a cobrar" value={`${nf.format(b.totals.total)} ${b.currency}`} highlight />
+                          <Metric label="Pagos" value={nf0.format(b.pagos)} />
+                        </div>
+                        <div className="rounded-md border overflow-hidden">
+                          <Table>
+                            <TableHeader>
+                              <TableRow>
+                                <TableHead>{period === "anio" ? "Año" : period === "mes" ? "Mes" : "Fecha"}</TableHead>
+                                <TableHead className="text-right">Interés</TableHead>
+                                <TableHead className="text-right">Amortización</TableHead>
+                                <TableHead className="text-right">Total</TableHead>
                               </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </div>
-                    </TabsContent>
-                  ))}
-                </Tabs>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+                            </TableHeader>
+                            <TableBody>
+                              {b.rows.map((r) => (
+                                <TableRow key={r.key}>
+                                  <TableCell className="font-medium">{r.label}</TableCell>
+                                  <TableCell className="text-right font-mono">{nf.format(r.interes)}</TableCell>
+                                  <TableCell className="text-right font-mono">{nf.format(r.amortizacion)}</TableCell>
+                                  <TableCell className="text-right font-mono font-semibold">{nf.format(r.total)}</TableCell>
+                                </TableRow>
+                              ))}
+                            </TableBody>
+                          </Table>
+                        </div>
+                      </TabsContent>
+                    ))}
+                  </Tabs>
+                )}
+              </CardContent>
+            </Card>
+          </>
+        )}
       </div>
     </div>
   )
 }
 
-function Summary({
-  label,
-  value,
-  cur,
-  count,
-  highlight,
-}: {
-  label: string
-  value: number
-  cur?: string
-  count?: boolean
-  highlight?: boolean
-}) {
+function Metric({ label, value, highlight, cls }: { label: string; value: string; highlight?: boolean; cls?: string }) {
   return (
     <div className={`rounded-md border p-3 ${highlight ? "bg-primary/5 border-primary/30" : "bg-muted/30"}`}>
       <p className="text-xs text-muted-foreground">{label}</p>
-      <p className={`text-lg font-bold font-mono ${highlight ? "text-primary" : "text-foreground"}`}>
-        {count ? nf0.format(value) : nf.format(value)}
-        {!count && cur ? <span className="text-xs font-sans text-muted-foreground ml-1">{cur}</span> : null}
-      </p>
+      <p className={`text-lg font-bold font-mono ${cls ?? (highlight ? "text-primary" : "text-foreground")}`}>{value}</p>
     </div>
   )
 }
