@@ -11,7 +11,10 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Plus, Trash2, Wallet, Loader2, Check, X } from "lucide-react"
+import { Plus, Trash2, Wallet, Loader2, Check, X, ArrowLeft } from "lucide-react"
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts"
+
+const PALETTE = ["#522398", "#8555ff", "#5632b2", "#73ffa1", "#b794f6", "#94a3b8", "#f59e0b", "#2a9d8f", "#e76f51", "#3b82f6"]
 
 const STORAGE = "lb-carteras-v1"
 const OLD_KEY = "lb-cartera-v1"
@@ -209,18 +212,6 @@ export default function CarteraPage() {
     return { ars, usd, varDia: ayer > 0 ? ars / ayer - 1 : null }
   }, [valuations])
 
-  // Composición por categoría (Bonos / Acciones / CEDEARs)
-  const composicion = useMemo(() => {
-    const cat = (v: Val) => (v.kind === "bond" ? "Bonos" : v.tipo === "Acción" ? "Acciones" : "CEDEARs")
-    const m = new Map<string, number>()
-    for (const v of valuations) if (v.valARS != null) m.set(cat(v), (m.get(cat(v)) ?? 0) + v.valARS)
-    const tot = [...m.values()].reduce((a, b) => a + b, 0)
-    const colors: Record<string, string> = { Bonos: "var(--lb-violet)", Acciones: "var(--lb-violet-accent)", CEDEARs: "var(--lb-violet-compl)" }
-    return [...m.entries()]
-      .map(([k, val]) => ({ k, val, pct: tot > 0 ? val / tot : 0, color: colors[k] ?? "var(--muted-foreground)" }))
-      .sort((a, b) => b.val - a.val)
-  }, [valuations])
-
   // ── Flujo consolidado (bonos) ──
   const bondHoldingMap = useMemo(() => new Map(holdings.filter((h) => h.kind === "bond").map((h) => [h.symbol, h.qty])), [holdings])
   const blocks = useMemo<FlowBlock[]>(() => {
@@ -319,25 +310,8 @@ export default function CarteraPage() {
             </div>
 
             {/* Composición */}
-            {composicion.length > 0 && (
-              <div className="rounded-lg border bg-card p-4 space-y-2">
-                <p className="text-sm font-medium text-foreground">Composición</p>
-                <div className="flex h-3 w-full overflow-hidden rounded-full">
-                  {composicion.map((c) => (
-                    <div key={c.k} style={{ width: `${c.pct * 100}%`, background: c.color }} title={`${c.k} ${(c.pct * 100).toFixed(1)}%`} />
-                  ))}
-                </div>
-                <div className="flex flex-wrap gap-x-5 gap-y-1 text-xs">
-                  {composicion.map((c) => (
-                    <span key={c.k} className="flex items-center gap-1.5">
-                      <span className="inline-block h-2.5 w-2.5 rounded-full" style={{ background: c.color }} />
-                      <span className="text-muted-foreground">{c.k}</span>
-                      <span className="font-semibold text-foreground">{(c.pct * 100).toFixed(1)}%</span>
-                      <span className="text-muted-foreground">· $ {fmtArs(c.val)}</span>
-                    </span>
-                  ))}
-                </div>
-              </div>
+            {valuations.some((v) => v.valARS != null) && (
+              <Composicion vals={valuations} />
             )}
 
             {/* Tenencias */}
@@ -511,6 +485,79 @@ export default function CarteraPage() {
         )}
       </div>
     </div>
+  )
+}
+
+function Composicion({ vals }: { vals: { tipo: string; symbol: string; valARS: number | null }[] }) {
+  const [drill, setDrill] = useState<string | null>(null)
+
+  const items = useMemo(() => {
+    const m = new Map<string, number>()
+    if (drill) {
+      for (const v of vals) if (v.tipo === drill && v.valARS != null) m.set(v.symbol, (m.get(v.symbol) ?? 0) + v.valARS)
+    } else {
+      for (const v of vals) if (v.valARS != null) m.set(v.tipo, (m.get(v.tipo) ?? 0) + v.valARS)
+    }
+    const tot = [...m.values()].reduce((a, b) => a + b, 0)
+    return { rows: [...m.entries()].map(([name, value]) => ({ name, value, pct: tot > 0 ? value / tot : 0 })).sort((a, b) => b.value - a.value), tot }
+  }, [vals, drill])
+
+  return (
+    <Card>
+      <CardHeader className="pb-2">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-lg">
+            Composición {drill ? <span className="text-muted-foreground font-normal text-base">· {drill}</span> : <span className="text-muted-foreground font-normal text-base">por tipo</span>}
+          </CardTitle>
+          {drill ? (
+            <Button variant="ghost" size="sm" className="h-7 gap-1" onClick={() => setDrill(null)}>
+              <ArrowLeft className="h-4 w-4" /> Volver
+            </Button>
+          ) : (
+            <span className="text-xs text-muted-foreground">Tocá una porción para ver el detalle</span>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="grid sm:grid-cols-[260px_1fr] gap-4 items-center">
+          <ResponsiveContainer width="100%" height={240}>
+            <PieChart>
+              <Pie
+                data={items.rows}
+                dataKey="value"
+                nameKey="name"
+                innerRadius={55}
+                outerRadius={95}
+                paddingAngle={1}
+                onClick={(d: any) => { if (!drill && d?.name) setDrill(d.name) }}
+              >
+                {items.rows.map((e, i) => (
+                  <Cell key={e.name} fill={PALETTE[i % PALETTE.length]} cursor={drill ? "default" : "pointer"} stroke="var(--card)" />
+                ))}
+              </Pie>
+              <Tooltip
+                formatter={(v: number, n: string) => [`$ ${nf0.format(v)} (${((v / items.tot) * 100).toFixed(1)}%)`, n]}
+                contentStyle={{ background: "var(--popover)", border: "1px solid var(--border)", borderRadius: 8, fontSize: 12 }}
+              />
+            </PieChart>
+          </ResponsiveContainer>
+          <div className="space-y-1.5 max-h-[240px] overflow-auto">
+            {items.rows.map((r, i) => (
+              <button
+                key={r.name}
+                onClick={() => { if (!drill) setDrill(r.name) }}
+                className={`flex items-center gap-2 w-full text-sm ${drill ? "cursor-default" : "hover:bg-muted rounded px-1"}`}
+              >
+                <span className="inline-block h-3 w-3 rounded-sm shrink-0" style={{ background: PALETTE[i % PALETTE.length] }} />
+                <span className="font-medium">{r.name}</span>
+                <span className="ml-auto font-mono text-muted-foreground">$ {fmtArs(r.value)}</span>
+                <span className="font-mono font-semibold w-14 text-right">{(r.pct * 100).toFixed(1)}%</span>
+              </button>
+            ))}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
   )
 }
 
