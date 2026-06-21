@@ -519,8 +519,9 @@ function Composicion({ vals }: { vals: { tipo: string; symbol: string; valARS: n
         </div>
       </CardHeader>
       <CardContent>
-        <div className="grid sm:grid-cols-[260px_1fr] gap-4 items-center">
-          <ResponsiveContainer width="100%" height={240}>
+        <div className="mx-auto flex max-w-2xl flex-col items-center gap-6 sm:flex-row sm:justify-center">
+          <div className="h-[220px] w-[220px] shrink-0">
+          <ResponsiveContainer width="100%" height="100%">
             <PieChart>
               <Pie
                 data={items.rows}
@@ -541,7 +542,8 @@ function Composicion({ vals }: { vals: { tipo: string; symbol: string; valARS: n
               />
             </PieChart>
           </ResponsiveContainer>
-          <div className="space-y-1.5 max-h-[240px] overflow-auto">
+          </div>
+          <div className="w-full space-y-1.5 sm:max-w-xs max-h-[220px] overflow-auto">
             {items.rows.map((r, i) => (
               <button
                 key={r.name}
