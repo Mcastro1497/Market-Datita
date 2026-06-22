@@ -14,6 +14,7 @@ import {
   HandCoins,
   LineChart,
   Landmark,
+  CandlestickChart,
 } from "lucide-react"
 import {
   Sidebar,
@@ -35,6 +36,7 @@ const nav = [
   { href: "/soberanos", label: "Soberanos Hard Dollar", icon: DollarSign },
   { href: "/soberanos-ars", label: "Soberanos ARS", icon: PiggyBank },
   { href: "/dlk", label: "Dólar Linked", icon: Link2 },
+  { href: "/equity", label: "Equity", icon: CandlestickChart },
   { href: "/todos-los-tickers", label: "Todos los tickers", icon: ListOrdered },
   { href: "/macro", label: "Macro", icon: LineChart },
   { href: "/datos-bancarios", label: "Datos bancarios", icon: Landmark },
@@ -50,7 +52,7 @@ export function AppSidebar() {
   const pathname = usePathname()
 
   const isActive = (href: string) =>
-    href === "/" ? pathname === "/" : pathname.startsWith(href)
+    href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(href + "/")
 
   return (
     <Sidebar collapsible="icon">

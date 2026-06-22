@@ -149,7 +149,16 @@ export function SoberanosArsDetailsTable({ flows, activeTab }: SoberanosArsDetai
                   onClick={() => setSelected(flow)}
                   className="cursor-pointer hover:bg-muted/50"
                 >
-                  <TableCell className="text-center font-medium">{flow.ticker}</TableCell>
+                  <TableCell className="text-center font-medium">
+                    <div className="flex flex-col items-center leading-tight">
+                      <span>{flow.ticker}</span>
+                      {flow.lastPrice?.cer_fixed && (
+                        <Badge variant="secondary" className="mt-0.5 text-[10px] px-1.5 py-0">
+                          Fixed
+                        </Badge>
+                      )}
+                    </div>
+                  </TableCell>
                   <TableCell className="text-center tabular-nums">{formatArs(flow.lastPrice?.last)}</TableCell>
                   <TableCell className="text-center tabular-nums">
                     <span className={chg && chg > 0 ? "text-success" : chg && chg < 0 ? "text-destructive" : "text-muted-foreground"}>
@@ -180,6 +189,7 @@ export function SoberanosArsDetailsTable({ flows, activeTab }: SoberanosArsDetai
 function BondDetailDialog({ flow, onClose }: { flow: SoberanoWithDetails | null; onClose: () => void }) {
   const d = flow?.details
   const isTamar = d?.instrument_type === "TAMAR"
+  const isCer = d?.instrument_type === "CER"
   return (
     <Dialog open={!!flow} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-2xl">
@@ -189,6 +199,9 @@ function BondDetailDialog({ flow, onClose }: { flow: SoberanoWithDetails | null;
               <DialogTitle className="flex items-baseline gap-2">
                 <span className="text-xl font-bold">{flow.ticker}</span>
                 {d?.instrument_type && <span className="text-sm font-normal text-muted-foreground">{d.instrument_type}</span>}
+                {flow.lastPrice?.cer_fixed && (
+                  <Badge variant="secondary" className="text-[10px]">Fixed · TIR nominal</Badge>
+                )}
               </DialogTitle>
               <p className="text-sm text-muted-foreground">
                 {flow.emisor}
@@ -219,6 +232,8 @@ function BondDetailDialog({ flow, onClose }: { flow: SoberanoWithDetails | null;
               <Field label="Convención int." value={d?.convencion_int} />
               <Field label="Periodicidad int." value={d?.periodicidad_int} />
               {!isTamar && <Field label="CER emisión" value={formatDecimal(d?.cer_emision)} />}
+              {isCer && <Field label="CER t-10" value={formatDecimal(d?.cer_t10)} />}
+              {isCer && <Field label="Ratio (t-10 / emisión)" value={formatDecimal(d?.ratio_cer)} />}
               {isTamar && <Field label="Margen ref." value={formatPercentage(d?.margen_ref)} />}
               <Field label="Lámina mínima" value={formatAmount(d?.lamina_min)} />
               <Field label="Operación mínima" value={formatAmount(d?.operacion_min)} />

@@ -19,7 +19,7 @@ const fetcher = async () => {
     const batchSize = 1000
     while (true) {
       const { data, error } = await supabase
-        .from("instrument_flows_v2")
+        .from("instrument_flows_v3")
         .select("*")
         .order("fecha_pago", { ascending: true })
         .range(start, start + batchSize - 1)
@@ -66,6 +66,14 @@ const fetcher = async () => {
   const flowsWithDetails: SoberanoWithDetails[] = Array.from(byTicker.values()).map((flow: any) => {
     const instr = instrumentsMap.get(flow.symbol) as any
     const price = pricesMap.get(flow.symbol) as any
+    // ratio CER aplicable = total_proyectado / total (constante por bono en v3);
+    // CER t-10 = ratio × cer_emision
+    const ratioCer =
+      flow.total_proyectado != null && Number(flow.total) !== 0
+        ? Number(flow.total_proyectado) / Number(flow.total)
+        : null
+    const cerT10 =
+      ratioCer != null && instr?.cer_emision ? ratioCer * Number(instr.cer_emision) : null
     return {
       ...flow,
       ticker: flow.symbol,
@@ -73,6 +81,8 @@ const fetcher = async () => {
       details: instr ? {
         ticker:            instr.symbol,
         instrument_type:   categoriaArs(instr.referencias),
+        cer_t10:           cerT10,
+        ratio_cer:         ratioCer,
         vencimiento:       instr.vencimiento,
         legislacion:       instr.legislacion,
         jurisdiccion_pago: instr.jurisdiccion_pago,
