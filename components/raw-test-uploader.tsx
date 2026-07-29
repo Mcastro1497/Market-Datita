@@ -29,6 +29,10 @@ export function RawTestUploader({ title, description, table, parse, onUploadComp
   const onDrop = useCallback(async (files: File[]) => {
     const file = files[0]
     if (!file) return
+    if (!/\.(csv|xlsx|xls)$/i.test(file.name)) {
+      setMessage({ type: "error", text: `Formato no soportado: ${file.name}. Usá .csv, .xlsx o .xls.` })
+      return
+    }
     setUploading(true); setProgress(10); setMessage(null)
     try {
       const grid = await readGrid(file)
@@ -53,14 +57,12 @@ export function RawTestUploader({ title, description, table, parse, onUploadComp
     }
   }, [supabase, table, parse, onUploadComplete])
 
+  // Sin filtro `accept` por MIME: algunos navegadores reportan el .csv con un
+  // tipo que no matchea y react-dropzone lo rechaza en silencio. Aceptamos
+  // cualquier archivo y validamos la extensión en onDrop (con mensaje visible).
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: {
-      "text/csv": [".csv"],
-      "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"],
-      "application/vnd.ms-excel": [".xls"],
-    },
-    maxFiles: 1,
+    multiple: false,
     disabled: uploading,
   })
 
