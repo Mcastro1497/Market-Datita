@@ -28,17 +28,21 @@ export function pInt(v: unknown): number | null {
   return n === null ? null : Math.trunc(n)
 }
 
-// Valores "por 100 VN" que el terminal formatea con % pero son número plano,
-// NO una fracción: "20.00%" = 20 por cada 100 VN (no 0.20), "4.25%" = 4.25.
-// Saca el % SIN dividir por 100.
+// Interés/Amortización "por 100 VN". En xlsx (raw) la celda viene como
+// FRACCIÓN con precisión completa (0.04943013… = 4.94%); la reescalamos a
+// por-100 (×100). En csv viene como texto "4.94%" ya redondeado en escala
+// por-100 -> sacamos el % sin multiplicar.
 export function pBaseVn(v: unknown): number | null {
   if (isNA(v)) return null
+  if (typeof v === "number") return v * 100
   return pNum(String(v).trim().replace(/%$/, ""))
 }
 
+// Fracción: xlsx (raw) ya la da como número (0.085); csv da "8.50%".
 // "8.50%" -> 0.085 ; "100.00%" -> 1 ; "2.75" -> 2.75  (redondeo a 8 decimales)
 export function pPct(v: unknown): number | null {
   if (isNA(v)) return null
+  if (typeof v === "number") return Math.round(v * 1e8) / 1e8
   const s = String(v).trim()
   const raw = s.endsWith("%") ? s.slice(0, -1) : s
   const n = Number(raw.replace(/,/g, ""))
@@ -93,9 +97,11 @@ export async function readGrid(file: File): Promise<unknown[][]> {
   if (file.name.toLowerCase().endsWith(".csv")) {
     return parseCSV(await file.text())
   }
-  const wb = XLSX.read(await file.arrayBuffer(), { type: "buffer", cellDates: true })
+  // raw:true -> números con precisión completa (los % vienen como fracción y
+  // las fechas como serial Excel, que pDate/pPct/pBaseVn ya saben interpretar).
+  const wb = XLSX.read(await file.arrayBuffer(), { type: "buffer" })
   const ws = wb.Sheets[wb.SheetNames[0]]
-  return XLSX.utils.sheet_to_json(ws, { header: 1, raw: false, defval: "" }) as unknown[][]
+  return XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: "" }) as unknown[][]
 }
 
 function headerIndex(headerRow: unknown[]): Map<string, number> {
