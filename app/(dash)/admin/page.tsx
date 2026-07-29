@@ -106,7 +106,7 @@ export default function AdminPage() {
 
         <RawTestUploader
           title="Flujos crudos → instrument_flows_test"
-          description="calendario-de-pagos.csv/.xlsx tal cual del terminal. Toma el bloque «Flujo de fondos c/100 vn» y descarta valuaciones con «@»."
+          description="calendario-de-pagos.csv/.xlsx tal cual del terminal. Toma el interés/amortización BASE sin ajustar (columnas «(vn)», sin coeficiente CER) y descarta valuaciones con «@»."
           table="instrument_flows_test"
           parse={(grid) => {
             const { rows, skipped, discardedAt } = parseFlows(grid)

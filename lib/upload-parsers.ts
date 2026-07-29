@@ -1,10 +1,11 @@
 import * as XLSX from "xlsx"
 
 // ============================================================================
-//  Parser de los Excel CRUDOS del terminal (mismo criterio que load.py).
+//  Parser de los Excel CRUDOS del terminal (basado en load.py).
 //  - Doble encabezado: fila 0 = grupo, fila 1 = nombre real -> datos desde fila 2
-//  - Bloque "Flujo de fondos c/100 vn": columnas por POSICIÓN (13,14,15),
-//    porque "Interés/Amortización/Total" aparecen repetidos en el export.
+//  - Flujos: se toma la BASE sin ajustar de las columnas "Interés (vn)" y
+//    "Amortización (vn)". Para bonos CER el bloque "c/100 vn" viene con el
+//    coeficiente de ajuste aplicado; las columnas "(vn)" no lo tienen.
 // ============================================================================
 
 // ---------- parsers de valores (equivalentes a load.py) ----------
@@ -25,6 +26,14 @@ export function pNum(v: unknown): number | null {
 export function pInt(v: unknown): number | null {
   const n = pNum(v)
   return n === null ? null : Math.trunc(n)
+}
+
+// Valores "por 100 VN" que el terminal formatea con % pero son número plano,
+// NO una fracción: "20.00%" = 20 por cada 100 VN (no 0.20), "4.25%" = 4.25.
+// Saca el % SIN dividir por 100.
+export function pBaseVn(v: unknown): number | null {
+  if (isNA(v)) return null
+  return pNum(String(v).trim().replace(/%$/, ""))
 }
 
 // "8.50%" -> 0.085 ; "100.00%" -> 1 ; "2.75" -> 2.75  (redondeo a 8 decimales)
@@ -128,12 +137,18 @@ export function parseFlows(grid: unknown[][]): {
     if (symbol.includes("@")) { discardedAt.push(symbol); continue } // valuaciones 1816
     const fecha = pDate(at(row, "Efectiva"))
     if (!fecha) { skipped++; continue }
+    // Base SIN ajustar: para CER el bloque "c/100 vn" trae el coeficiente
+    // aplicado; usamos las columnas "(vn)" que el terminal ya da sin ajuste.
+    const interes = pBaseVn(at(row, "Interés (vn)"))
+    const amortizacion = pBaseVn(at(row, "Amortización (vn)"))
+    const total = interes === null && amortizacion === null
+      ? null : Math.round(((interes ?? 0) + (amortizacion ?? 0)) * 1e8) / 1e8
     rows.push({
       symbol,
       fecha_pago: fecha,
-      interes: pNum(row[13]),        // bloque c/100 vn por posición (como load.py)
-      amortizacion: pNum(row[14]),
-      total: pNum(row[15]),
+      interes,
+      amortizacion,
+      total,
       moneda_pago: pText(at(row, "Mon. pago")),
       dias: pInt(at(row, "Días")),
       cupon: pPct(at(row, "Tasa de int.")),
