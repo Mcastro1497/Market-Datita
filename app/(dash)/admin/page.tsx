@@ -106,7 +106,7 @@ export default function AdminPage() {
 
         <RawTestUploader
           title="Flujos crudos → instrument_flows_test"
-          description="calendario-de-pagos.csv/.xlsx tal cual del terminal. Toma el interés/amortización BASE sin ajustar (columnas «(vn)», sin coeficiente CER) y descarta valuaciones con «@»."
+          description="calendario-de-pagos.xlsx tal cual del terminal (solo Excel; el CSV redondea). Toma el interés/amortización BASE sin ajustar (columnas «(vn)», sin coeficiente CER) y descarta valuaciones con «@»."
           table="instrument_flows_test"
           parse={(grid) => {
             const { rows, skipped, discardedAt } = parseFlows(grid)
@@ -120,7 +120,7 @@ export default function AdminPage() {
 
         <RawTestUploader
           title="Instrumentos crudos → instruments_test"
-          description="screener.csv/.xlsx tal cual del terminal. Mapea las columnas de «Descripción» y «Cond. de emisión»; clasifica instrument_type best-effort."
+          description="screener.xlsx tal cual del terminal (solo Excel; el CSV redondea). Mapea las columnas de «Descripción» y «Cond. de emisión»; clasifica instrument_type best-effort."
           table="instruments_test"
           parse={(grid) => {
             const { rows, skipped } = parseInstruments(grid)

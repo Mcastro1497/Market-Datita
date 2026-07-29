@@ -29,8 +29,8 @@ export function RawTestUploader({ title, description, table, parse, onUploadComp
   const onDrop = useCallback(async (files: File[]) => {
     const file = files[0]
     if (!file) return
-    if (!/\.(csv|xlsx|xls)$/i.test(file.name)) {
-      setMessage({ type: "error", text: `Formato no soportado: ${file.name}. Usá .csv, .xlsx o .xls.` })
+    if (!/\.(xlsx|xls)$/i.test(file.name)) {
+      setMessage({ type: "error", text: `Solo Excel: ${file.name} no sirve. Usá .xlsx o .xls (el CSV viene redondeado).` })
       return
     }
     setUploading(true); setProgress(10); setMessage(null)
@@ -89,7 +89,7 @@ export function RawTestUploader({ title, description, table, parse, onUploadComp
           ) : (
             <div>
               <p className="text-muted-foreground mb-2">Arrastrá el Excel crudo del terminal, o hacé clic para seleccionar</p>
-              <p className="text-sm text-muted-foreground">Formatos: .csv, .xlsx, .xls</p>
+              <p className="text-sm text-muted-foreground">Solo Excel: .xlsx, .xls (el CSV redondea los decimales)</p>
             </div>
           )}
         </div>
