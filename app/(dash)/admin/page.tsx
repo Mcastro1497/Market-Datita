@@ -2,8 +2,6 @@
 
 import type React from "react"
 import { useState, useEffect } from "react"
-import { InstrumentFlowsUploader } from "@/components/instrument-flows-uploader"
-import { InstrumentsUploader } from "@/components/instruments-uploader"
 import { RawTestUploader } from "@/components/raw-test-uploader"
 import { parseFlows, parseInstruments } from "@/lib/upload-parsers"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -93,14 +91,11 @@ export default function AdminPage() {
           </Button>
         </div>
 
-        <InstrumentFlowsUploader onUploadComplete={handleUploadComplete} />
-        <InstrumentsUploader onUploadComplete={handleUploadComplete} />
-
-        <div className="pt-4 border-t">
-          <h2 className="text-xl font-semibold text-foreground mb-1">Pruebas — Excel crudos del terminal</h2>
+        <div>
+          <h2 className="text-xl font-semibold text-foreground mb-1">Excel crudos del terminal → tablas de prueba</h2>
           <p className="text-sm text-muted-foreground mb-4">
-            Suben el archivo tal cual sale del terminal (doble encabezado) a tablas <code>_test</code>,
-            sin tocar las tablas productivas. Modo &quot;solo agregar&quot;.
+            Subí el archivo tal cual sale del terminal (doble encabezado, solo <code>.xlsx</code>) a las tablas
+            <code> _test</code>, sin tocar las productivas. Modo &quot;solo agregar&quot;.
           </p>
         </div>
 
