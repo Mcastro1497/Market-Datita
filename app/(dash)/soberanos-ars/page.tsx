@@ -19,8 +19,12 @@ const fetcher = async () => {
     const batchSize = 1000
     while (true) {
       const { data, error } = await supabase
-        .from("instrument_flows_proyectados")
+        .from("instrument_flows")
         .select("*")
+        // Las proyecciones CER son columnas de instrument_flows desde sql/011.
+        // Antes el subset se elegía por tabla (instrument_flows_proyectados);
+        // ahora se filtra: NULL significa "este símbolo no se proyecta".
+        .not("total_proyectado", "is", null)
         .order("fecha_pago", { ascending: true })
         .range(start, start + batchSize - 1)
       if (error) throw error

@@ -169,7 +169,7 @@ export default function CarteraPage() {
       try {
         let start = 0; const batch = 1000
         while (true) {
-          const { data, error } = await supabase.from("instrument_flows_proyectados")
+          const { data, error } = await supabase.from("instrument_flows")
             .select("symbol, fecha_pago, interes, amortizacion, total, interes_proyectado, amortizacion_proyectado, total_proyectado, moneda_pago")
             .in("symbol", symbols).order("fecha_pago", { ascending: true }).range(start, start + batch - 1)
           if (error || !data || data.length === 0) break
