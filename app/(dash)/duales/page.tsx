@@ -40,6 +40,7 @@ const fetcher = async ([, scenario]: [string, string]) => {
       scenario: d.scenario,
       ganadora: d.ganadora,
       vpv_max:  d.vpv_max,
+      ventaja:  d.ventaja,
       patas:    d.patas ?? {},
       ts:       d.ts,
       kind:     kinds.get(d.symbol) ?? "DUAL",

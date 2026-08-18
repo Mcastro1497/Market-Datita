@@ -13,12 +13,21 @@ interface DualesTableProps {
   rows: DualRow[]
 }
 
-// Qué variable maneja cada pata y cómo se lee su breakeven.
-const DRIVER: Record<LegKind, { label: string; be: string; fmt: (v: number) => string }> = {
-  TAMAR: { label: "TAMAR", be: "TNA TAMAR", fmt: (v) => `${(v * 100).toFixed(2)}%` },
-  CER:   { label: "CER",   be: "inflación mensual", fmt: (v) => `${(v * 100).toFixed(2)}%` },
-  DLK:   { label: "Dólar", be: "A3500 al vto.", fmt: (v) => `$${v.toLocaleString("es-AR", { maximumFractionDigits: 0 })}` },
-  FIJA:  { label: "Fija",  be: "—", fmt: () => "—" },
+// Cómo se nombra cada pata y cómo se lee su breakeven. El nombre va DENTRO de la
+// celda porque cuál es la pata A y cuál la B cambia por fila (la ganadora va
+// primero), así que no puede estar en el encabezado.
+const LEG: Record<LegKind, { nombre: string; be: string; fmtBe: (v: number) => string }> = {
+  TAMAR: { nombre: "TAMAR",  be: "TNA TAMAR promedio",  fmtBe: (v) => `${(v * 100).toFixed(2)}%` },
+  CER:   { nombre: "CER",    be: "inflación mensual",   fmtBe: (v) => `${(v * 100).toFixed(2)}%` },
+  DLK:   { nombre: "USD-L",  be: "A3500 al vencimiento", fmtBe: (v) => `$${v.toLocaleString("es-AR", { maximumFractionDigits: 0 })}` },
+  FIJA:  { nombre: "Fija",   be: "—",                   fmtBe: () => "—" },
+}
+
+// Unidad en la que está la TIR nativa de la pata (valuations.ytm_conv).
+const CONV: Record<string, { sufijo: string; ayuda: string }> = {
+  nominal_ars: { sufijo: "TEA $",    ayuda: "TIR nominal anual en pesos." },
+  real_cer:    { sufijo: "TEA real", ayuda: "TIR real anual sobre CER: no depende de proyectar inflación." },
+  usd:         { sufijo: "TEA USD",  ayuda: "TIR anual en dólares: no depende de proyectar el tipo de cambio." },
 }
 
 export function DualesTable({ rows }: DualesTableProps) {
@@ -34,12 +43,14 @@ export function DualesTable({ rows }: DualesTableProps) {
   const pct = (v: number | null | undefined, d = 2) =>
     v === null || v === undefined ? "—" : `${(v * 100).toFixed(d)}%`
 
-  // El VPV de un dual en dólares (TMVE8) sale en pesos por VNO USD 100, así que
-  // es ~200.000 y no ~200. No es comparable contra el de un bono en pesos.
-  const num = (v: number | null | undefined, d = 2) =>
+  // Los duales en dólares (TMVE8) tienen nominal USD 100, así que su VPV sale en
+  // pesos por VNO USD 100 (~200.000). Sin decimales para que no sea ilegible.
+  const num = (v: number | null | undefined) =>
     v === null || v === undefined
       ? "—"
-      : v.toLocaleString("es-AR", { minimumFractionDigits: d, maximumFractionDigits: d })
+      : Math.abs(v) > 10000
+        ? v.toLocaleString("es-AR", { maximumFractionDigits: 0 })
+        : v.toLocaleString("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 
   const filtered = useMemo(() => {
     let out = rows
@@ -56,9 +67,7 @@ export function DualesTable({ rows }: DualesTableProps) {
           case "symbol":      return r.symbol
           case "vencimiento": return r.details?.vencimiento ?? ""
           case "kind":        return r.kind
-          case "ganadora":    return r.ganadora
-          case "vpv":         return r.vpv_max ?? 0
-          case "ytm":         return r.lastPrice?.ytm_ars ?? -Infinity
+          case "ventaja":     return r.ventaja ?? 0
           default:            return r.details?.vencimiento ?? ""
         }
       }
@@ -70,27 +79,51 @@ export function DualesTable({ rows }: DualesTableProps) {
     })
   }, [rows, searchTerm, sortField, sortDirection])
 
-  const Th = ({ field, children, className = "" }: { field: string; children: React.ReactNode; className?: string }) => (
-    <TableHead className={`text-center ${className}`}>
+  const Th = ({ field, children }: { field: string; children: React.ReactNode }) => (
+    <TableHead className="text-center">
       <Button variant="ghost" onClick={() => handleSort(field)} className="h-auto p-0 font-semibold">
         {children} <ArrowUpDown className="ml-2 h-4 w-4" />
       </Button>
     </TableHead>
   )
 
-  // Celda de una pata: VPV arriba, TEM abajo, resaltada si es la que paga.
-  const LegCell = ({ leg, kind }: { leg?: DualLeg; kind?: LegKind }) => {
-    if (!leg || !kind) return <TableCell className="text-center text-muted-foreground">—</TableCell>
+  // Una pata: nombre, VPV, TEM si devenga tasa, y su TIR EN SU PROPIA UNIDAD.
+  // Mostrar la nominal acá sería inútil: nadie quotea una pata dólar-linked en
+  // pesos. La nominal queda en el tooltip, que es la que decide quién gana.
+  const LegCell = ({ kind, leg }: { kind?: LegKind; leg?: DualLeg }) => {
+    if (!kind || !leg) return <TableCell className="text-center text-muted-foreground">—</TableCell>
+    const conv = CONV[leg.ytm_conv ?? "nominal_ars"] ?? CONV.nominal_ars
+    const mismaUnidad = (leg.ytm_conv ?? "nominal_ars") === "nominal_ars"
     return (
-      <TableCell className={`text-center ${leg.is_winner ? "bg-emerald-500/10 font-semibold" : ""}`}>
-        <div className="flex flex-col leading-tight">
-          <span className="flex items-center justify-center gap-1">
-            {num(leg.vpv, leg.vpv !== null && Math.abs(leg.vpv) > 10000 ? 0 : 2)}
-            {leg.is_winner && <span className="text-emerald-600 text-xs">◄</span>}
-          </span>
-          <span className="text-xs text-muted-foreground">
-            {leg.tem !== null ? `TEM ${pct(leg.tem, 3)}` : DRIVER[kind].label}
-          </span>
+      <TableCell className={`text-center ${leg.is_winner ? "bg-emerald-500/10" : ""}`}>
+        <div className="flex flex-col items-center gap-1 leading-tight">
+          <Badge variant={leg.is_winner ? "default" : "outline"}
+                 className={leg.is_winner ? "bg-emerald-600 hover:bg-emerald-600" : ""}>
+            {LEG[kind].nombre}
+          </Badge>
+          <span className={leg.is_winner ? "font-semibold" : ""}>{num(leg.vpv)}</span>
+          {leg.tem !== null && leg.tem !== undefined && (
+            <span className="text-xs text-muted-foreground">TEM {pct(leg.tem, 3)}</span>
+          )}
+          {leg.ytm_nativa !== null && leg.ytm_nativa !== undefined ? (
+            <Tooltip>
+              <TooltipTrigger className="text-sm font-medium underline decoration-dotted">
+                {pct(leg.ytm_nativa)} <span className="text-xs font-normal text-muted-foreground">{conv.sufijo}</span>
+              </TooltipTrigger>
+              <TooltipContent className="max-w-xs space-y-1">
+                <p>{conv.ayuda}</p>
+                {!mismaUnidad && (
+                  <p className="text-muted-foreground">
+                    Equivalente nominal en pesos: <strong>{pct(leg.ytm)}</strong>. Es la que se
+                    compara contra la otra pata para decidir cuál paga, porque es la única unidad
+                    común entre las dos.
+                  </p>
+                )}
+              </TooltipContent>
+            </Tooltip>
+          ) : (
+            <span className="text-xs text-muted-foreground">s/precio</span>
+          )}
         </div>
       </TableCell>
     )
@@ -105,9 +138,10 @@ export function DualesTable({ rows }: DualesTableProps) {
             <h3 className="font-semibold text-lb-violet-accent">Bonos Duales</h3>
           </div>
           <p className="text-sm text-muted-foreground">
-            Pagan al vencimiento el <strong>máximo</strong> entre sus dos patas. La columna{" "}
-            <strong>breakeven</strong> dice qué tendría que pasar para que gane la pata que hoy pierde;
-            es el número que importa, más que la TIR de un escenario puntual.
+            Pagan al vencimiento el <strong>máximo</strong> entre sus dos patas. Cada pata se muestra
+            con su TIR <strong>en su propia unidad</strong>: la TAMAR en pesos, la CER en tasa real y
+            la dólar-linked en dólares, para compararla contra la curva de su clase. El{" "}
+            <strong>breakeven</strong> dice qué tendría que pasar para que gane la que hoy pierde.
           </p>
         </div>
 
@@ -125,46 +159,52 @@ export function DualesTable({ rows }: DualesTableProps) {
                 <Th field="kind">Tipo</Th>
                 <Th field="vencimiento">Vto.</Th>
                 <TableHead className="text-center">Precio</TableHead>
-                <TableHead className="text-center">Pata A</TableHead>
-                <TableHead className="text-center">Pata B</TableHead>
-                <Th field="ganadora">Paga</Th>
+                <TableHead className="text-center">
+                  <span className="flex items-center justify-center gap-1 font-semibold">
+                    Pata que paga
+                    <Tooltip>
+                      <TooltipTrigger><Info className="h-3.5 w-3.5 text-muted-foreground" /></TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        La que hoy tiene el VPV más alto, comparando ambas en pesos nominales.
+                        Es la que cobrarías si todo se mantuviera como está.
+                      </TooltipContent>
+                    </Tooltip>
+                  </span>
+                </TableHead>
+                <TableHead className="text-center">Pata alternativa</TableHead>
+                <Th field="ventaja">Ventaja</Th>
                 <TableHead className="text-center">
                   <span className="flex items-center justify-center gap-1 font-semibold">
                     Breakeven
                     <Tooltip>
                       <TooltipTrigger><Info className="h-3.5 w-3.5 text-muted-foreground" /></TooltipTrigger>
                       <TooltipContent className="max-w-xs">
-                        Valor que tendría que tomar la variable de la pata perdedora para empatar.
-                        En un CER/TAMAR se despeja fijando TAMAR en el supuesto del escenario, así que
-                        se mueve si ese supuesto cambia: mirá la columna Supuesto.
+                        Valor que tendría que tomar la variable de la pata alternativa para empatar.
+                        Se despeja manteniendo fija la pata que paga, así que se mueve con el
+                        supuesto de esa pata: mirá la columna Supuesto.
                       </TooltipContent>
                     </Tooltip>
                   </span>
                 </TableHead>
-                <Th field="ytm">TIR $</Th>
                 <TableHead className="text-center">Supuesto</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {filtered.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={10} className="text-center text-muted-foreground py-8">
+                  <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
                     No hay duales cargados.
                   </TableCell>
                 </TableRow>
               )}
               {filtered.map((r) => {
                 const legs = Object.keys(r.patas) as LegKind[]
-                // La ganadora primero, para que la lectura sea "paga esto, contra esto".
+                // Ganadora primero: la fila se lee "paga esto, contra esto".
                 const orden = [...legs].sort((a, b) =>
                   (r.patas[b]?.is_winner ? 1 : 0) - (r.patas[a]?.is_winner ? 1 : 0))
-                const [a, b] = orden
-                const perdedora = orden.find((l) => !r.patas[l]?.is_winner)
-                const bePata = perdedora && r.patas[perdedora]?.breakeven !== null ? perdedora : undefined
-                const be = bePata ? r.patas[bePata]!.breakeven! : null
-                // El origen de la proyección lo graba cada motor en params.
-                const supuesto = orden.map((l) => r.patas[l]?.params?.origen_proy)
-                                      .find(Boolean) as string | undefined
+                const [gana, alt] = orden
+                const be = alt && r.patas[alt]?.breakeven != null ? r.patas[alt]!.breakeven! : null
+                const supuesto = r.patas[gana]?.params?.origen_proy as string | undefined
                 const extrap = orden.reduce((m, l) =>
                   Math.max(m, Number(r.patas[l]?.params?.meses_extrapolados ?? 0)), 0)
 
@@ -180,28 +220,39 @@ export function DualesTable({ rows }: DualesTableProps) {
                         <Tooltip>
                           <TooltipTrigger className="text-muted-foreground">s/precio</TooltipTrigger>
                           <TooltipContent>
-                            Todavía no llegó cotización para este símbolo. El VPV y el breakeven
-                            se calculan igual; sólo falta la TIR.
+                            Todavía no llegó cotización. El VPV y el breakeven se calculan igual;
+                            sólo falta la TIR.
                           </TooltipContent>
                         </Tooltip>
                       )}
                     </TableCell>
-                    <LegCell leg={r.patas[a]} kind={a} />
-                    <LegCell leg={r.patas[b]} kind={b} />
+                    <LegCell kind={gana} leg={r.patas[gana]} />
+                    <LegCell kind={alt} leg={alt ? r.patas[alt] : undefined} />
                     <TableCell className="text-center">
-                      <Badge className="bg-emerald-600 hover:bg-emerald-600">{r.ganadora}</Badge>
+                      {r.ventaja == null ? "—" : (
+                        <Tooltip>
+                          <TooltipTrigger className={`underline decoration-dotted ${r.ventaja < 0.05 ? "text-amber-600 font-medium" : ""}`}>
+                            {pct(r.ventaja, 1)}
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-xs">
+                            Cuánto le saca la pata que paga a la alternativa, en pesos.
+                            {r.ventaja < 0.05
+                              ? " Menos de 5%: la opción está viva y el pago final puede darse vuelta."
+                              : " Con esta distancia la pata alternativa es difícil que gane."}
+                          </TooltipContent>
+                        </Tooltip>
+                      )}
                     </TableCell>
                     <TableCell className="text-center">
-                      {be === null || !bePata ? (
+                      {be === null || !alt ? (
                         <span className="text-muted-foreground text-xs">pata determinística</span>
                       ) : (
                         <div className="flex flex-col leading-tight">
-                          <span className="font-medium">{DRIVER[bePata].fmt(be)}</span>
-                          <span className="text-xs text-muted-foreground">{DRIVER[bePata].be}</span>
+                          <span className="font-medium">{LEG[alt].fmtBe(be)}</span>
+                          <span className="text-xs text-muted-foreground">{LEG[alt].be}</span>
                         </div>
                       )}
                     </TableCell>
-                    <TableCell className="text-center">{pct(r.lastPrice?.ytm_ars)}</TableCell>
                     <TableCell className="text-center text-xs text-muted-foreground">
                       <Tooltip>
                         <TooltipTrigger className="underline decoration-dotted">
@@ -209,14 +260,12 @@ export function DualesTable({ rows }: DualesTableProps) {
                         </TooltipTrigger>
                         <TooltipContent className="max-w-xs space-y-1">
                           <p>
-                            Se muestra el supuesto de la pata <strong>{r.ganadora}</strong> porque es
-                            el que califica el breakeven: la variable de la otra pata se despeja
+                            Es el supuesto de la pata <strong>{LEG[gana]?.nombre}</strong>, que es el
+                            que califica el breakeven: la variable de la alternativa se despeja
                             manteniendo esta fija.
                           </p>
                           {orden.map((l) => (
-                            <p key={l}>
-                              {l}: {String(r.patas[l]?.params?.origen_proy ?? "—")}
-                            </p>
+                            <p key={l}>{LEG[l].nombre}: {String(r.patas[l]?.params?.origen_proy ?? "—")}</p>
                           ))}
                         </TooltipContent>
                       </Tooltip>
@@ -241,10 +290,11 @@ export function DualesTable({ rows }: DualesTableProps) {
         </div>
 
         <p className="text-xs text-muted-foreground">
-          VPV = valor de pago al vencimiento, base 100 de valor nominal. Ojo: en los duales
-          denominados en dólares (TMVE8) el nominal son USD 100, así que el VPV sale en pesos por
-          VNO USD 100 y no es comparable contra el de un dual en pesos. La TIR es nominal en pesos
-          (<code>prices.ytm_ars</code>), que es la única convención comparable entre patas.
+          VPV = valor de pago al vencimiento, base 100 de valor nominal. En los duales denominados en
+          dólares (TMVE8) el nominal son USD 100, así que el VPV sale en pesos por VNO USD 100 y no
+          es comparable contra el de un dual en pesos. Cada TIR está en la unidad que indica su
+          sufijo; el tooltip muestra el equivalente nominal en pesos, que es el que decide qué pata
+          paga.
         </p>
       </div>
     </TooltipProvider>

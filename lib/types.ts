@@ -301,14 +301,22 @@ export type AllTicker = {
 // v_duales las pivotea. Ver marketweb/sql/001_patas_duales.sql.
 export type LegKind = "FIJA" | "TAMAR" | "CER" | "DLK"
 
+export type YtmConv = "nominal_ars" | "real_cer" | "usd"
+
 export type DualLeg = {
-  vpv:       number | null   // valor de pago al vencimiento, ARS base 100 de VN
-  tem:       number | null   // TEM implícita (sólo patas que devengan tasa)
-  driver:    number | null   // variable que maneja la pata
-  ytm:       number | null   // TIR nominal en pesos si ESTA pata fuera la que paga
-  breakeven: number | null   // valor del driver que la iguala con la otra pata
-  is_winner: boolean
-  params:    Record<string, any> | null   // desglose del motor (origen_proy, etc.)
+  vpv:        number | null   // valor de pago al vencimiento, ARS base 100 de VN
+  vt:         number | null   // valor técnico devengado a hoy
+  tem:        number | null   // TEM implícita (sólo patas que devengan tasa)
+  driver:     number | null   // variable que maneja la pata
+  // ytm es NOMINAL en pesos: la única unidad común entre patas, y la que decide
+  // is_winner. ytm_nativa está en la unidad propia de la pata (ytm_conv) y es la
+  // que se muestra, porque nadie quotea una pata dólar-linked en pesos.
+  ytm:        number | null
+  ytm_nativa: number | null
+  ytm_conv:   YtmConv | null
+  breakeven:  number | null   // valor del driver que la iguala con la otra pata
+  is_winner:  boolean
+  params:     Record<string, any> | null   // desglose del motor (origen_proy, etc.)
 }
 
 export type DualRow = {
@@ -316,6 +324,7 @@ export type DualRow = {
   scenario:  string
   ganadora:  LegKind
   vpv_max:   number | null
+  ventaja:   number | null   // cuánto le saca la ganadora a la alternativa, en pesos
   patas:     Partial<Record<LegKind, DualLeg>>
   ts:        string | null
   kind:      string          // 'DUAL:CER/TAMAR'
