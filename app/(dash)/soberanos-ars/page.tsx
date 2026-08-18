@@ -19,7 +19,7 @@ const fetcher = async () => {
     const batchSize = 1000
     while (true) {
       const { data, error } = await supabase
-        .from("instrument_flows_v3")
+        .from("instrument_flows_proyectados")
         .select("*")
         .order("fecha_pago", { ascending: true })
         .range(start, start + batchSize - 1)
@@ -34,7 +34,7 @@ const fetcher = async () => {
 
   const [allFlowsRaw, instrumentsResult, pricesResult] = await Promise.all([
     fetchAllFlows(),
-    supabase.from("instruments_v2").select("*").eq("moneda_pago", "ARS").eq("is_active", true),
+    supabase.from("instruments").select("*").eq("moneda_pago", "ARS").eq("is_active", true),
     supabase.from("prices").select("*"),
   ])
 

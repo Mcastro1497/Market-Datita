@@ -19,7 +19,7 @@ const fetcher = async ([, scenario]: [string, string]) => {
   const [dualesRes, kindsRes, instrumentsRes, pricesRes, scenariosRes] = await Promise.all([
     supabase.from("v_duales").select("*").eq("scenario", scenario),
     supabase.from("v_instrument_kind").select("*").gt("n_patas", 1),
-    supabase.from("instruments_v2").select("*").eq("is_active", true),
+    supabase.from("instruments").select("*").eq("is_active", true),
     supabase.from("prices").select("*"),
     supabase.from("scenarios").select("*").order("id"),
   ])

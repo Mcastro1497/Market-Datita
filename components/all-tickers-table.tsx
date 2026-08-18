@@ -54,7 +54,7 @@ export function AllTickersTable() {
     ;(async () => {
       try {
         const [instrRes, pricesRes] = await Promise.all([
-          supabase.from("instruments_v2").select("*").eq("is_active", true).order("symbol"),
+          supabase.from("instruments").select("*").eq("is_active", true).order("symbol"),
           supabase.from("prices").select("symbol, last, price_ars, closing_price, ytm, duration_y, change_pct, tna"),
         ])
         if (instrRes.error) throw instrRes.error
