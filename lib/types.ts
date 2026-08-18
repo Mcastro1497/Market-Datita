@@ -294,3 +294,47 @@ export type AllTicker = {
   created_at:        string
   updated_at:        string
 }
+
+// ── Duales ──────────────────────────────────────────────────────────────────
+// Un dual paga al vencimiento el MÁXIMO entre sus patas. Cada pata se valúa por
+// separado en `valuations` (una fila por symbol/leg/escenario) y la vista
+// v_duales las pivotea. Ver marketweb/sql/001_patas_duales.sql.
+export type LegKind = "FIJA" | "TAMAR" | "CER" | "DLK"
+
+export type DualLeg = {
+  vpv:       number | null   // valor de pago al vencimiento, ARS base 100 de VN
+  tem:       number | null   // TEM implícita (sólo patas que devengan tasa)
+  driver:    number | null   // variable que maneja la pata
+  ytm:       number | null   // TIR nominal en pesos si ESTA pata fuera la que paga
+  breakeven: number | null   // valor del driver que la iguala con la otra pata
+  is_winner: boolean
+  params:    Record<string, any> | null   // desglose del motor (origen_proy, etc.)
+}
+
+export type DualRow = {
+  symbol:    string
+  scenario:  string
+  ganadora:  LegKind
+  vpv_max:   number | null
+  patas:     Partial<Record<LegKind, DualLeg>>
+  ts:        string | null
+  kind:      string          // 'DUAL:CER/TAMAR'
+  details?: {
+    denominacion:  string | null
+    emision:       string | null
+    vencimiento:   string | null
+    moneda_denom:  string | null
+    margen_ref:    number | null
+    cer_emision:   number | null
+  } | null
+  lastPrice?: {
+    price_ars:     number | null
+    closing_price: number | null
+    change_pct:    number | null
+    ytm:           number | null
+    ytm_ars:       number | null
+    duration_y:    number | null
+    paridad:       number | null
+    ts:            string | null
+  } | null
+}

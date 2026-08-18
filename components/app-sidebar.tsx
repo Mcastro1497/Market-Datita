@@ -15,6 +15,7 @@ import {
   LineChart,
   Landmark,
   CandlestickChart,
+  Split,
 } from "lucide-react"
 import {
   Sidebar,
@@ -36,6 +37,7 @@ const nav = [
   { href: "/soberanos", label: "Soberanos Hard Dollar", icon: DollarSign },
   { href: "/soberanos-ars", label: "Soberanos ARS", icon: PiggyBank },
   { href: "/dlk", label: "Dólar Linked", icon: Link2 },
+  { href: "/duales", label: "Duales", icon: Split },
   { href: "/equity", label: "Equity", icon: CandlestickChart },
   { href: "/todos-los-tickers", label: "Todos los tickers", icon: ListOrdered },
   { href: "/macro", label: "Macro", icon: LineChart },
