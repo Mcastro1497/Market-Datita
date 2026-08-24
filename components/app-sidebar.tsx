@@ -3,7 +3,6 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
-  Home,
   TrendingUp,
   DollarSign,
   PiggyBank,
@@ -32,7 +31,6 @@ import {
 import { LbLogo } from "@/components/lb-logo"
 
 const nav = [
-  { href: "/", label: "Inicio", icon: Home },
   { href: "/ons", label: "Obligaciones Negociables", icon: TrendingUp },
   { href: "/soberanos", label: "Soberanos Hard Dollar", icon: DollarSign },
   { href: "/soberanos-ars", label: "Soberanos ARS", icon: PiggyBank },
@@ -59,7 +57,7 @@ export function AppSidebar() {
   return (
     <Sidebar collapsible="icon">
       <SidebarHeader className="px-3 py-4">
-        <Link href="/" className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center">
+        <Link href="/soberanos" className="flex items-center gap-2 group-data-[collapsible=icon]:justify-center">
           <LbLogo className="h-6 w-auto text-sidebar-foreground group-data-[collapsible=icon]:hidden" />
         </Link>
       </SidebarHeader>
