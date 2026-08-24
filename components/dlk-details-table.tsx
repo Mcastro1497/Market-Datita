@@ -17,7 +17,9 @@ interface DlkDetailsTableProps {
 }
 
 export function DlkDetailsTable({ flows, fxOficial }: DlkDetailsTableProps) {
-  const [sortField, setSortField] = useState<string>("")
+  // Por defecto los bonos se listan por vencimiento ascendente: es el orden en
+  // que se lee una curva, y deja arriba lo que vence primero.
+  const [sortField, setSortField] = useState<string>("details.vencimiento")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
   const [searchTerm, setSearchTerm] = useState("")
   const [emisorFilter, setEmisorFilter] = useState<string>("")
