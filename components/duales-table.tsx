@@ -72,6 +72,12 @@ export function DualesTable({ rows }: DualesTableProps) {
         }
       }
       const [x, y] = [get(a), get(b)]
+      // Vencimiento vacío al final en ambas direcciones, igual que en el resto
+      // de las tablas: una fila sin fecha no encabeza la curva.
+      if (sortField === "vencimiento" || sortField === "") {
+        const vx = x === "", vy = y === ""
+        if (vx || vy) return vx === vy ? 0 : vx ? 1 : -1
+      }
       if (typeof x === "number" && typeof y === "number") return sortDirection === "asc" ? x - y : y - x
       return sortDirection === "asc"
         ? String(x).localeCompare(String(y))

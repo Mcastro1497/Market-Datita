@@ -67,8 +67,11 @@ export function SoberanosArsFijaTable({ flows, activeTab }: SoberanosArsFijaTabl
       filtered.sort((a, b) => {
         // sort especial por vencimiento con parser local
         if (sortField === "details.vencimiento") {
-          const da = parseLocalISODate(a.details?.vencimiento)?.getTime() ?? -Infinity
-          const db = parseLocalISODate(b.details?.vencimiento)?.getTime() ?? -Infinity
+          // Un bono sin vencimiento cargado no es "el que vence primero": va al final
+          // en cualquier dirección, para no ensuciar la cabecera de la curva.
+          const da = parseLocalISODate(a.details?.vencimiento)?.getTime() ?? null
+          const db = parseLocalISODate(b.details?.vencimiento)?.getTime() ?? null
+          if (da === null || db === null) return da === db ? 0 : da === null ? 1 : -1
           return sortDirection === "asc" ? da - db : db - da
         }
 
