@@ -2,8 +2,8 @@
 
 import type React from "react"
 import { useState, useEffect } from "react"
-import { InstrumentFlowsUploader } from "@/components/instrument-flows-uploader"
-import { InstrumentsUploader } from "@/components/instruments-uploader"
+import { RawTestUploader } from "@/components/raw-test-uploader"
+import { parseFlows, parseInstruments } from "@/lib/upload-parsers"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -91,8 +91,38 @@ export default function AdminPage() {
           </Button>
         </div>
 
-        <InstrumentFlowsUploader onUploadComplete={handleUploadComplete} />
-        <InstrumentsUploader onUploadComplete={handleUploadComplete} />
+        <div>
+          <h2 className="text-xl font-semibold text-foreground mb-1">Excel crudos del terminal → tablas de prueba</h2>
+          <p className="text-sm text-muted-foreground mb-4">
+            Subí el archivo tal cual sale del terminal (doble encabezado, solo <code>.xlsx</code>) a las tablas
+            <code> _test</code>, sin tocar las productivas. Modo &quot;solo agregar&quot;.
+          </p>
+        </div>
+
+        <RawTestUploader
+          title="Flujos crudos → instrument_flows_test"
+          description="calendario-de-pagos.xlsx tal cual del terminal (solo Excel; el CSV redondea). Toma el interés/amortización BASE sin ajustar (columnas «(vn)», sin coeficiente CER) y descarta valuaciones con «@»."
+          table="instrument_flows_test"
+          parse={(grid) => {
+            const { rows, skipped, discardedAt } = parseFlows(grid)
+            const parts: string[] = [`${new Set(rows.map(r => r.symbol)).size} símbolos`]
+            if (skipped) parts.push(`${skipped} filas omitidas (sin ticker/fecha)`)
+            if (discardedAt.length) parts.push(`${discardedAt.length} descartadas por «@»`)
+            return { rows: rows as unknown as Record<string, unknown>[], note: parts.join(", ") + "." }
+          }}
+          onUploadComplete={handleUploadComplete}
+        />
+
+        <RawTestUploader
+          title="Instrumentos crudos → instruments_test"
+          description="screener.xlsx tal cual del terminal (solo Excel; el CSV redondea). Mapea las columnas de «Descripción» y «Cond. de emisión»; clasifica instrument_type best-effort."
+          table="instruments_test"
+          parse={(grid) => {
+            const { rows, skipped } = parseInstruments(grid)
+            return { rows, note: skipped ? `${skipped} filas omitidas (sin ticker).` : "" }
+          }}
+          onUploadComplete={handleUploadComplete}
+        />
 
       </div>
     </div>

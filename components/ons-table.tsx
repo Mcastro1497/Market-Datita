@@ -52,8 +52,10 @@ export function ONSTable({ data }: ONSTableProps) {
 
     // Orden especial para fecha_pago usando parser local
     if (sortField === "fecha_pago") {
-      const ad = parseLocalISODate(aValue as any)?.getTime() ?? -Infinity
-      const bd = parseLocalISODate(bValue as any)?.getTime() ?? -Infinity
+      // Sin fecha de pago al final, no arriba: no es el pago más próximo.
+      const ad = parseLocalISODate(aValue as any)?.getTime() ?? null
+      const bd = parseLocalISODate(bValue as any)?.getTime() ?? null
+      if (ad === null || bd === null) return ad === bd ? 0 : ad === null ? 1 : -1
       return sortDirection === "asc" ? ad - bd : bd - ad
     }
 

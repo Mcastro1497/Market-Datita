@@ -294,3 +294,56 @@ export type AllTicker = {
   created_at:        string
   updated_at:        string
 }
+
+// ── Duales ──────────────────────────────────────────────────────────────────
+// Un dual paga al vencimiento el MÁXIMO entre sus patas. Cada pata se valúa por
+// separado en `valuations` (una fila por symbol/leg/escenario) y la vista
+// v_duales las pivotea. Ver marketweb/sql/001_patas_duales.sql.
+export type LegKind = "FIJA" | "TAMAR" | "CER" | "DLK"
+
+export type YtmConv = "nominal_ars" | "real_cer" | "usd"
+
+export type DualLeg = {
+  vpv:        number | null   // valor de pago al vencimiento, ARS base 100 de VN
+  vt:         number | null   // valor técnico devengado a hoy
+  tem:        number | null   // TEM implícita (sólo patas que devengan tasa)
+  driver:     number | null   // variable que maneja la pata
+  // ytm es NOMINAL en pesos: la única unidad común entre patas, y la que decide
+  // is_winner. ytm_nativa está en la unidad propia de la pata (ytm_conv) y es la
+  // que se muestra, porque nadie quotea una pata dólar-linked en pesos.
+  ytm:        number | null
+  ytm_nativa: number | null
+  ytm_conv:   YtmConv | null
+  breakeven:  number | null   // valor del driver que la iguala con la otra pata
+  is_winner:  boolean
+  params:     Record<string, any> | null   // desglose del motor (origen_proy, etc.)
+}
+
+export type DualRow = {
+  symbol:    string
+  scenario:  string
+  ganadora:  LegKind
+  vpv_max:   number | null
+  ventaja:   number | null   // cuánto le saca la ganadora a la alternativa, en pesos
+  patas:     Partial<Record<LegKind, DualLeg>>
+  ts:        string | null
+  kind:      string          // 'DUAL:CER/TAMAR'
+  details?: {
+    denominacion:  string | null
+    emision:       string | null
+    vencimiento:   string | null
+    moneda_denom:  string | null
+    margen_ref:    number | null
+    cer_emision:   number | null
+  } | null
+  lastPrice?: {
+    price_ars:     number | null
+    closing_price: number | null
+    change_pct:    number | null
+    ytm:           number | null
+    ytm_ars:       number | null
+    duration_y:    number | null
+    paridad:       number | null
+    ts:            string | null
+  } | null
+}

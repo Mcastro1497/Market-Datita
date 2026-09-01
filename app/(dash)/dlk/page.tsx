@@ -20,7 +20,7 @@ const fetcher = async () => {
     const batchSize = 1000
     while (true) {
       const { data, error } = await supabase
-        .from("instrument_flows_v2")
+        .from("instrument_flows")
         .select("*")
         .order("fecha_pago", { ascending: true })
         .range(start, start + batchSize - 1)
@@ -35,9 +35,11 @@ const fetcher = async () => {
 
   const [allFlowsRaw, instrumentsResult, pricesResult, fxResult] = await Promise.all([
     fetchAllFlows(),
-    supabase.from("instruments_v2").select("*").eq("instrument_type", "DLK").eq("is_active", true),
+    supabase.from("instruments").select("*").eq("instrument_type", "DLK").eq("is_active", true),
     supabase.from("prices").select("*"),
-    supabase.from("prices").select("last, ts").eq("symbol", FX_SYMBOL).maybeSingle(),
+    supabase.from("prices")
+      .select("last, ts, apertura, maximo, minimo, closing_price, change_pct, monto_operado")
+      .eq("symbol", FX_SYMBOL).maybeSingle(),
   ])
 
   if (instrumentsResult.error) throw instrumentsResult.error
@@ -46,8 +48,34 @@ const fetcher = async () => {
 
   const instrumentsData = instrumentsResult.data || []
   const pricesData = pricesResult.data || []
-  const fxOficial = fxResult.data?.last ? Number(fxResult.data.last) : null
-  const fxTs = fxResult.data?.ts ?? null
+  // El cliente de Supabase no tiene tipos generados, así que maybeSingle()
+  // devuelve `never` y cualquier acceso a un campo no compila. Se tipa la fila
+  // acá en vez de castear en cada uso.
+  type FilaFx = {
+    last: number | null
+    ts: string | null
+    apertura: number | null
+    maximo: number | null
+    minimo: number | null
+    closing_price: number | null
+    change_pct: number | null
+    monto_operado: number | null
+  }
+  const fxRow = (fxResult.data ?? null) as FilaFx | null
+
+  const fxOficial = fxRow?.last ? Number(fxRow.last) : null
+  const fxTs = fxRow?.ts ?? null
+  // Recorrido de la rueda del mayorista, tal como lo publica MAE. change_pct es
+  // FRACCIÓN (0.0073 = +0,73%), igual que en el resto de `prices`.
+  const num = (x: number | null | undefined) => (x == null ? null : Number(x))
+  const fxRueda = {
+    apertura: num(fxRow?.apertura),
+    maximo: num(fxRow?.maximo),
+    minimo: num(fxRow?.minimo),
+    cierreAnterior: num(fxRow?.closing_price),
+    variacion: num(fxRow?.change_pct),
+    montoOperado: num(fxRow?.monto_operado),
+  }
 
   const dlkSymbols = new Set(instrumentsData.map((i: any) => i.symbol))
   const flowsData = allFlowsRaw.filter((f: any) => dlkSymbols.has(f.symbol))
@@ -115,6 +143,7 @@ const fetcher = async () => {
     jurisdicciones: uniqueJurisdicciones,
     fxOficial,
     fxTs,
+    fxRueda,
   }
 }
 
@@ -166,6 +195,19 @@ export default function DlkDashboard() {
   const formatFx = (v: number | null) =>
     v == null ? "—" : new Intl.NumberFormat("es-AR", { minimumFractionDigits: 4, maximumFractionDigits: 4 }).format(v)
 
+  const fxCorto = (v: number | null) =>
+    v == null ? "—" : new Intl.NumberFormat("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(v)
+
+  // El monto negociado del mayorista está en cientos de miles de millones de
+  // pesos, así que en millones es lo único que se lee de un vistazo.
+  const enMillones = (v: number | null) =>
+    v == null ? "—" : `$${new Intl.NumberFormat("es-AR", { maximumFractionDigits: 0 }).format(v / 1_000_000)} M`
+
+  const variacion = data?.fxRueda?.variacion ?? null
+  const signoVar = variacion == null ? "" : variacion > 0 ? "+" : ""
+  const colorVar = variacion == null ? "text-lb-violet-accent"
+    : variacion > 0 ? "text-emerald-600" : variacion < 0 ? "text-red-600" : "text-muted-foreground"
+
   return (
     <div className="min-h-screen bg-background p-4">
       <div className="max-w-7xl mx-auto space-y-6">
@@ -185,12 +227,28 @@ export default function DlkDashboard() {
             <Link2 className="h-4 w-4 text-lb-violet-accent" />
             <span className="text-lb-violet-accent font-medium">Dólar oficial (MAE A3500):</span>
             <span className="font-mono text-lb-violet-accent">${formatFx(data?.fxOficial ?? null)}</span>
+            {variacion != null && (
+              <span className={`font-mono font-medium ${colorVar}`}>
+                {signoVar}{(variacion * 100).toFixed(2)}%
+              </span>
+            )}
             {data?.fxTs && (
               <span className="text-lb-violet-accent text-xs ml-auto">
                 Última actualización: {new Date(data.fxTs).toLocaleString("es-AR")}
               </span>
             )}
           </div>
+
+          {/* Recorrido de la rueda del mayorista */}
+          {data?.fxRueda && (data.fxRueda.apertura != null || data.fxRueda.maximo != null) && (
+            <div className="mt-2 flex flex-wrap items-center gap-x-6 gap-y-1 px-4 text-xs text-muted-foreground">
+              <span>Apertura <span className="font-mono text-foreground">{fxCorto(data.fxRueda.apertura)}</span></span>
+              <span>Mínimo <span className="font-mono text-foreground">{fxCorto(data.fxRueda.minimo)}</span></span>
+              <span>Máximo <span className="font-mono text-foreground">{fxCorto(data.fxRueda.maximo)}</span></span>
+              <span>Cierre anterior <span className="font-mono text-foreground">{fxCorto(data.fxRueda.cierreAnterior)}</span></span>
+              <span>Monto operado <span className="font-mono text-foreground">{enMillones(data.fxRueda.montoOperado)}</span></span>
+            </div>
+          )}
         </div>
 
         {data && <DlkDetailsFilters legislaciones={data.legislaciones} jurisdicciones={data.jurisdicciones} emisores={data.emisores} onFiltersChange={handleDetailsFiltersChange} />}

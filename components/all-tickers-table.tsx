@@ -54,7 +54,7 @@ export function AllTickersTable() {
     ;(async () => {
       try {
         const [instrRes, pricesRes] = await Promise.all([
-          supabase.from("instruments_v2").select("*").eq("is_active", true).order("symbol"),
+          supabase.from("instruments").select("*").eq("is_active", true).order("symbol"),
           supabase.from("prices").select("symbol, last, price_ars, closing_price, ytm, duration_y, change_pct, tna"),
         ])
         if (instrRes.error) throw instrRes.error
@@ -85,9 +85,19 @@ export function AllTickersTable() {
     [rows],
   )
 
+  // "YYYY-MM-DD" de Supabase se parsea como local: con new Date() directo cae
+  // un día antes en ART y el orden se desarma en los vencimientos de fin de mes.
+  const parseLocalISODate = (value?: string | null) => {
+    if (!value) return null
+    const m = String(value).match(/^(\d{4})-(\d{2})-(\d{2})$/)
+    if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+    const d = new Date(String(value))
+    return Number.isNaN(d.getTime()) ? null : d
+  }
+
   const filtered = useMemo(() => {
     const q = searchTerm.trim().toLowerCase()
-    return rows.filter((r) => {
+    const out = rows.filter((r) => {
       const matchesSearch =
         !q ||
         r.symbol?.toLowerCase().includes(q) ||
@@ -98,6 +108,19 @@ export function AllTickersTable() {
       const matchesRef = refFilter === "all" || r.referencias === refFilter
       const matchesMoneda = monedaFilter === "all" || r.moneda_pago === monedaFilter
       return matchesSearch && matchesType && matchesRef && matchesMoneda
+    })
+
+    // Orden por defecto: vencimiento de mas cercano a mas lejano, que es como se
+    // lee una curva. Lo que no vence (acciones, CEDEARs) va al final, alfabetico.
+    return out.sort((a, b) => {
+      const da = parseLocalISODate(a.vencimiento)?.getTime() ?? null
+      const db = parseLocalISODate(b.vencimiento)?.getTime() ?? null
+      if (da === null || db === null) {
+        if (da !== db) return da === null ? 1 : -1
+        return (a.symbol ?? "").localeCompare(b.symbol ?? "")
+      }
+      if (da !== db) return da - db
+      return (a.symbol ?? "").localeCompare(b.symbol ?? "")
     })
   }, [rows, searchTerm, typeFilter, refFilter, monedaFilter])
 

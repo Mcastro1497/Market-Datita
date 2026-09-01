@@ -49,7 +49,9 @@ const formatDuration = (value: number | null | undefined) => {
 }
 
 export function SoberanosDetailsTable({ flows }: SoberanosDetailsTableProps) {
-  const [sortField, setSortField] = useState<string>("")
+  // Por defecto los bonos se listan por vencimiento ascendente: es el orden en
+  // que se lee una curva, y deja arriba lo que vence primero.
+  const [sortField, setSortField] = useState<string>("details.vencimiento")
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc")
   const [searchTerm, setSearchTerm] = useState("")
   const [selected, setSelected] = useState<SoberanoWithDetails | null>(null)
@@ -68,8 +70,11 @@ export function SoberanosDetailsTable({ flows }: SoberanosDetailsTableProps) {
     if (sortField) {
       filtered.sort((a, b) => {
         if (sortField === "details.vencimiento") {
-          const da = parseLocalISODate(a.details?.vencimiento)?.getTime() ?? -Infinity
-          const db = parseLocalISODate(b.details?.vencimiento)?.getTime() ?? -Infinity
+          // Un bono sin vencimiento cargado no es "el que vence primero": va al final
+          // en cualquier dirección, para no ensuciar la cabecera de la curva.
+          const da = parseLocalISODate(a.details?.vencimiento)?.getTime() ?? null
+          const db = parseLocalISODate(b.details?.vencimiento)?.getTime() ?? null
+          if (da === null || db === null) return da === db ? 0 : da === null ? 1 : -1
           return sortDirection === "asc" ? da - db : db - da
         }
 
