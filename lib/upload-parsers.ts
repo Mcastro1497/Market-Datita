@@ -174,9 +174,14 @@ function classifyType(x: {
   const cup = (x.tipo_cupon || "").toUpperCase()
   const tref = (x.tasa_ref || "").toUpperCase()
   if (tref.includes("TAMAR") || ref.includes("TAMAR")) return "TAMAR"
-  if (cup.includes("CER") || ref.includes("CER")) return "CER"
-  if (ref.includes("DLK") || ref.includes("DOLAR") || ref.includes("DÓLAR") ||
-      (x.moneda_denom === "ARS" && x.moneda_pago === "USD")) return "DLK"
+  // \bCER\b y no includes("CER"): el cupón cero viene como "Cero", que contiene
+  // "CER" y se llevaba puestos a todos los bullet, dólar linked incluidos.
+  const esCER = /\bCER\b/
+  if (esCER.test(cup) || esCER.test(ref) || esCER.test(tref)) return "CER"
+  // Dólar linked: denomina en USD y paga en ARS (al revés de como estaba), y
+  // BYMA lo referencia por la comunicación A3500 del BCRA, no por la palabra.
+  if (ref.includes("A3500") || ref.includes("DLK") || ref.includes("DOLAR") || ref.includes("DÓLAR") ||
+      (x.moneda_denom === "USD" && x.moneda_pago === "ARS")) return "DLK"
   if (x.moneda_denom === "USD") return "HD"
   return "FIJA"
 }
