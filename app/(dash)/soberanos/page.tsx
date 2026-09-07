@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { SoberanosDetailsFilters } from "@/components/soberanos-details-filters"
 import { SoberanosDetailsTable } from "@/components/soberanos-details-table"
+import { CurvaForward } from "@/components/curva-forward"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
 import type { SoberanoWithDetails } from "@/lib/types"
@@ -163,6 +164,7 @@ export default function SoberanosDashboard() {
         </div>
         {data && <SoberanosDetailsFilters legislaciones={data.legislaciones} jurisdicciones={data.jurisdicciones} emisores={data.emisores} onFiltersChange={handleDetailsFiltersChange} />}
         <SoberanosDetailsTable flows={filteredDetailsData} />
+        {data && <CurvaForward flows={data.flowsWithDetails} />}
       </div>
     </div>
   )
