@@ -165,15 +165,31 @@ function marcasX(min: number, max: number): number[] {
   return out
 }
 
-/** Etiquetas: AL30 y AO28 caen a 0,036 años una de otra y se pisarían. */
-function desplazar(pts: { dur: number }[]): number[] {
-  let previa = -Infinity
-  let abajo = false
-  return pts.map((p) => {
-    abajo = p.dur - previa < 0.12 ? !abajo : false
-    previa = p.dur
-    return abajo ? 18 : -10
-  })
+/**
+ * Dónde va la etiqueta de cada punto. AL30 y AO28 caen a 0,036 años uno del otro
+ * y se pisan. Alternar arriba/abajo a ciegas no alcanza: si el de abajo lleva la
+ * etiqueta arriba y el de arriba la lleva abajo, las dos terminan en el medio,
+ * justo lo que pasaba. Dentro de cada racimo de durations cercanas se ordena por
+ * TIR: el más alto la lleva arriba y el más bajo, abajo, que es la única
+ * asignación que las separa.
+ */
+function desplazar(pts: { dur: number; __y: number }[]): number[] {
+  const dys = new Array(pts.length).fill(-10)
+  let i = 0
+  while (i < pts.length) {
+    let j = i
+    while (j + 1 < pts.length && pts[j + 1].dur - pts[j].dur < 0.12) j++
+    if (j > i) {
+      const racimo = []
+      for (let k = i; k <= j; k++) racimo.push({ k, y: pts[k].__y })
+      racimo.sort((a, b) => b.y - a.y)          // de mayor a menor TIR
+      racimo.forEach((r, orden) => {
+        dys[r.k] = orden === 0 ? -13 : orden === racimo.length - 1 ? 20 : -13 - orden * 13
+      })
+    }
+    i = j + 1
+  }
+  return dys
 }
 
 function Punto(props: any) {
@@ -357,7 +373,7 @@ export function CurvaForward({ flows, grupos, titulo, spread }: Props) {
     const filas: any[] = []
     for (const g of cuales) {
       for (const p of porGrupo[g.key] ?? []) {
-        filas.push({ dur: p.dur, symbol: p.symbol, [g.key]: p.y, meta: p.meta })
+        filas.push({ dur: p.dur, symbol: p.symbol, [g.key]: p.y, __y: p.y, meta: p.meta })
       }
     }
     filas.sort((a, b) => a.dur - b.dur)
@@ -413,15 +429,16 @@ export function CurvaForward({ flows, grupos, titulo, spread }: Props) {
   if (!grupos.reduce((n, g) => n + bonos[g.key].length, 0)) return null
 
   const Grafico = ({
-    datos, cuales, tip, shortsVisibles,
-  }: { datos: { filas: any[]; hayFit: boolean }; cuales: GrupoCurva[]; tip: any; shortsVisibles?: boolean }) => {
+    datos, cuales, tip, shortsVisibles, alto = 380,
+  }: { datos: { filas: any[]; hayFit: boolean }; cuales: GrupoCurva[]; tip: any
+       shortsVisibles?: boolean; alto?: number }) => {
     if (!datos.filas.length) {
       return <p className="py-12 text-center text-sm text-muted-foreground">Sin datos para graficar.</p>
     }
     const ds = datos.filas.map((f) => f.dur)
     const x0 = Math.min(...ds), x1 = Math.max(...ds)
     return (
-      <ResponsiveContainer width="100%" height={300}>
+      <ResponsiveContainer width="100%" height={alto}>
         <LineChart data={datos.filas} margin={{ top: 24, right: 28, bottom: 8, left: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
           <XAxis
@@ -511,10 +528,11 @@ export function CurvaForward({ flows, grupos, titulo, spread }: Props) {
             grupos={grupos} colores={colores} setColor={setColor} />
         </CardHeader>
         <CardContent>
-          <Grafico datos={spotData} cuales={grupos} tip={<TipSpot />} />
+          <Grafico datos={spotData} cuales={grupos} tip={<TipSpot />} alto={420} />
         </CardContent>
       </Card>
 
+      <div className={grupos.length > 1 ? "grid gap-6 lg:grid-cols-2" : ""}>
       {grupos.map((g) => (
         <Card key={g.key}>
           <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
@@ -552,10 +570,12 @@ export function CurvaForward({ flows, grupos, titulo, spread }: Props) {
             </Rueda>
           </CardHeader>
           <CardContent>
-            <Grafico datos={fwdData[g.key]} cuales={[g]} tip={<TipFwd />} shortsVisibles />
+            <Grafico datos={fwdData[g.key]} cuales={[g]} tip={<TipFwd />} shortsVisibles
+              alto={grupos.length > 1 ? 400 : 380} />
           </CardContent>
         </Card>
       ))}
+      </div>
 
       {spread && pares.length > 0 && (
         <Card>
