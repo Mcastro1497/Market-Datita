@@ -164,7 +164,25 @@ export default function SoberanosDashboard() {
         </div>
         {data && <SoberanosDetailsFilters legislaciones={data.legislaciones} jurisdicciones={data.jurisdicciones} emisores={data.emisores} onFiltersChange={handleDetailsFiltersChange} />}
         <SoberanosDetailsTable flows={filteredDetailsData} />
-        {data && <CurvaForward flows={data.flowsWithDetails} />}
+        {data && (
+          <CurvaForward
+            flows={data.flowsWithDetails}
+            titulo="Soberanos hard dollar"
+            descripcion="TIR de cada bono contra su duration de Macaulay."
+            prefijoShort="Ley"
+            grupos={[
+              { key: "arg", nombre: "Ley Argentina",  incluye: (f) => f?.details?.legislacion === "Argentina" },
+              { key: "ny",  nombre: "Ley Nueva York", incluye: (f) => f?.details?.legislacion === "Nueva York" },
+            ]}
+            spread={{
+              titulo: "Spread de legislación",
+              descripcion:
+                "Cociente de precios en dólares entre los bonos de igual vencimiento: GD30D / AL30D − 1. " +
+                "Mismo flujo, mismo emisor, misma fecha, así que lo que queda es lo que el mercado paga " +
+                "por la jurisdicción.",
+            }}
+          />
+        )}
       </div>
     </div>
   )

@@ -1,26 +1,31 @@
 "use client"
 
 /**
- * Curva spot y forwards de los soberanos hard dollar, separados por legislación.
+ * Curva spot y forwards, en vivo. Sirve a cualquier universo de bonos.
  *
  * POR QUÉ NO HAY TABLA EN LA BASE
- * Todo esto sale de `prices` (ytm, duration_y) e `instruments` (legislacion), que
- * la página ya trae. Son unas decenas de potencias: guardarlas sería duplicar dato
- * derivado que además queda desincronizado del precio en cuanto se mueve la rueda.
- * Se recalcula en cada refresco de SWR. Si algún día hace falta el histórico —cómo
- * era la curva hace un mes— ahí sí hay que persistir, porque `prices` sólo guarda
- * el estado actual.
+ * Todo sale de `prices` (ytm, duration_y, last) e `instruments`, que la página ya
+ * trae. Son unas decenas de potencias: guardarlas sería duplicar dato derivado que
+ * queda desincronizado del precio en cuanto se mueve la rueda. Se recalcula en cada
+ * refresco de SWR. Si algún día hace falta el histórico —cómo era la curva hace un
+ * mes— ahí sí hay que persistir, porque `prices` sólo guarda el estado actual.
  *
- * POR QUÉ SEPARADAS POR LEGISLACIÓN
- * AL30 y GD30 tienen el mismo flujo, el mismo emisor y el mismo vencimiento, y
- * cotizan distinto: la diferencia es riesgo de jurisdicción. Metidos en la misma
- * curva, ese spread se lee como si fuera plazo.
+ * POR QUÉ RECIBE GRUPOS Y NO UN UNIVERSO PLANO
+ * Dos bonos van en la misma curva sólo si su TIR mide lo mismo. En hard dollar eso
+ * obliga a partir por legislación: AL30 y GD30 comparten flujo, emisor y
+ * vencimiento y cotizan distinto, así que en una sola curva ese spread de
+ * jurisdicción se leería como si fuera plazo. En dólar linked hay un solo grupo.
+ * Ojo al reusarlo en pesos: la TIR de un CER es REAL y la de un FIJA es NOMINAL,
+ * y ésas no comparten eje.
  */
 
 import { useMemo, useState } from "react"
+import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Minus, Plus, Settings2 } from "lucide-react"
 import {
   CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts"
@@ -28,19 +33,128 @@ import {
 type Bono = { symbol: string; dur: number; ytm: number; px: number | null; vto: string | null }
 type Tramo = { short: Bono; bono: Bono; dt: number; fwd: number }
 
-const LEYES = [
-  { key: "arg", nombre: "Argentina",  color: "#2563eb" },
-  { key: "ny",  nombre: "Nueva York", color: "#ea580c" },
-] as const
-type LeyKey = (typeof LEYES)[number]["key"]
+export type GrupoCurva = {
+  key: string
+  nombre: string
+  /** Qué filas del universo caen en este grupo. */
+  incluye: (flow: any) => boolean
+}
+
+/** Paleta de LB. Son tokens, así que cambian solos con el tema. */
+export const PALETA_LB = [
+  { token: "var(--chart-1)", nombre: "Violeta" },
+  { token: "var(--chart-4)", nombre: "Violeta oscuro" },
+  { token: "var(--chart-2)", nombre: "Violeta claro" },
+  { token: "var(--chart-5)", nombre: "Lavanda" },
+  { token: "var(--chart-3)", nombre: "Verde" },
+  { token: "var(--success)", nombre: "Verde oscuro" },
+  { token: "var(--destructive)", nombre: "Rojo" },
+  { token: "var(--foreground)", nombre: "Tinta" },
+]
+const COLOR_INICIAL = ["var(--chart-1)", "var(--chart-3)", "var(--chart-2)", "var(--success)"]
+
+type TipoAjuste = "none" | "log" | "poly"
+type Ajuste = { tipo: TipoAjuste; grado: number }
+
+type Props = {
+  flows: any[]
+  grupos: GrupoCurva[]
+  titulo: string
+  descripcion: string
+  /** Etiqueta del selector de short: "Short ley Argentina" vs "Short". */
+  prefijoShort?: string
+  /** Tabla de spread entre los dos primeros grupos, por bonos de igual vencimiento. */
+  spread?: { titulo: string; descripcion: string }
+}
 
 const pct = (v: number | null | undefined, d = 2) =>
   v === null || v === undefined || !isFinite(v) ? "—" : `${(v * 100).toFixed(d)}%`
-const bps = (v: number) => `${v >= 0 ? "+" : ""}${v.toFixed(0)} bps`
 
 /** F(1,2) = [ (1+R2)^t2 / (1+R1)^t1 ] ^ ( 1/(t2-t1) ) - 1 */
 function forward(a: Bono, b: Bono): number {
   return Math.pow(Math.pow(1 + b.ytm, b.dur) / Math.pow(1 + a.ytm, a.dur), 1 / (b.dur - a.dur)) - 1
+}
+
+// ── Regresiones ──────────────────────────────────────────────────────────────
+// Mínimos cuadrados a mano: son ecuaciones normales de 2 a 7 incógnitas sobre
+// menos de veinte puntos, no justifica traer una librería.
+
+/** Resuelve A·x = b por Gauss con pivoteo parcial. null si la matriz es singular. */
+function resolver(A: number[][], b: number[]): number[] | null {
+  const n = b.length
+  const M = A.map((fila, i) => [...fila, b[i]])
+  for (let col = 0; col < n; col++) {
+    let piv = col
+    for (let f = col + 1; f < n; f++) if (Math.abs(M[f][col]) > Math.abs(M[piv][col])) piv = f
+    if (Math.abs(M[piv][col]) < 1e-12) return null
+    ;[M[col], M[piv]] = [M[piv], M[col]]
+    for (let f = col + 1; f < n; f++) {
+      const k = M[f][col] / M[col][col]
+      for (let c = col; c <= n; c++) M[f][c] -= k * M[col][c]
+    }
+  }
+  const x = new Array(n).fill(0)
+  for (let i = n - 1; i >= 0; i--) {
+    let s = M[i][n]
+    for (let j = i + 1; j < n; j++) s -= M[i][j] * x[j]
+    x[i] = s / M[i][i]
+  }
+  return x
+}
+
+/**
+ * y = c0 + c1·z + … + cn·zⁿ, con z = (t − media) / desvío.
+ * Se centra y escala porque sin eso t⁵ con t ≈ 6 años deja la matriz mal
+ * condicionada y el ajuste sale con ruido numérico.
+ */
+function ajustePoly(xs: number[], ys: number[], grado: number) {
+  const n = grado + 1
+  if (xs.length < n) return null
+  const media = xs.reduce((a, b) => a + b, 0) / xs.length
+  const desvio = Math.sqrt(xs.reduce((a, x) => a + (x - media) ** 2, 0) / xs.length) || 1
+  const z = xs.map((x) => (x - media) / desvio)
+  const A: number[][] = []
+  const b: number[] = []
+  for (let i = 0; i < n; i++) {
+    A.push(new Array(n).fill(0).map((_, j) => z.reduce((a, zi) => a + zi ** (i + j), 0)))
+    b.push(z.reduce((a, zi, k) => a + zi ** i * ys[k], 0))
+  }
+  const c = resolver(A, b)
+  if (!c) return null
+  return (t: number) => {
+    const zt = (t - media) / desvio
+    return c.reduce((a, ci, i) => a + ci * zt ** i, 0)
+  }
+}
+
+/** y = a + b·ln(t). Todas las durations son > 0, así que el log siempre existe. */
+function ajusteLog(xs: number[], ys: number[]) {
+  if (xs.length < 2) return null
+  const l = xs.map(Math.log)
+  const n = l.length
+  const ml = l.reduce((a, b) => a + b, 0) / n
+  const my = ys.reduce((a, b) => a + b, 0) / n
+  let num = 0, den = 0
+  for (let i = 0; i < n; i++) { num += (l[i] - ml) * (ys[i] - my); den += (l[i] - ml) ** 2 }
+  if (den < 1e-12) return null
+  const b = num / den
+  const a = my - b * ml
+  return (t: number) => a + b * Math.log(t)
+}
+
+function ajustar(pts: { x: number; y: number }[], aj: Ajuste) {
+  if (aj.tipo === "none" || pts.length < 2) return null
+  const xs = pts.map((p) => p.x), ys = pts.map((p) => p.y)
+  return aj.tipo === "log" ? ajusteLog(xs, ys) : ajustePoly(xs, ys, aj.grado)
+}
+
+/** Marcas del eje X en valores redondos, no en las durations crudas. */
+function marcasX(min: number, max: number): number[] {
+  const rango = max - min
+  const paso = rango > 8 ? 2 : rango > 3 ? 1 : rango > 1.2 ? 0.5 : 0.25
+  const out: number[] = []
+  for (let v = Math.ceil(min / paso) * paso; v <= max + 1e-9; v += paso) out.push(Number(v.toFixed(2)))
+  return out
 }
 
 /** Etiquetas: AL30 y AO28 caen a 0,036 años una de otra y se pisarían. */
@@ -56,8 +170,7 @@ function desplazar(pts: { dur: number }[]): number[] {
 
 function Punto(props: any) {
   const { cx, cy, payload, dataKey, color } = props
-  const y = payload?.[dataKey]
-  if (y === null || y === undefined || cx === undefined || cy === undefined) return null
+  if (payload?.[dataKey] == null || cx === undefined || cy === undefined) return null
   return (
     <g>
       <circle cx={cx} cy={cy} r={4.5} fill={color} stroke="var(--background)" strokeWidth={2} />
@@ -72,21 +185,6 @@ function Punto(props: any) {
   )
 }
 
-const ejeX = {
-  type: "number" as const,
-  dataKey: "dur",
-  domain: ["dataMin - 0.3", "dataMax + 0.3"] as [string, string],
-  tickFormatter: (v: number) => `${v}y`,
-  tick: { fontSize: 11, fill: "var(--muted-foreground)" },
-  stroke: "var(--border)",
-}
-const ejeY = {
-  width: 52,
-  tickFormatter: (v: number) => `${(v * 100).toFixed(0)}%`,
-  tick: { fontSize: 11, fill: "var(--muted-foreground)" },
-  stroke: "var(--border)",
-  domain: ["auto", "auto"] as [string, string],
-}
 const estiloTooltip = {
   background: "var(--popover)",
   border: "1px solid var(--border)",
@@ -94,265 +192,375 @@ const estiloTooltip = {
   fontSize: 12,
 }
 
-export function CurvaForward({ flows }: { flows: any[] }) {
+// ── Rueda de configuración ───────────────────────────────────────────────────
+function Rueda({
+  ajuste, setAjuste, maxGrado, grupos, colores, setColor, children,
+}: {
+  ajuste: Ajuste
+  setAjuste: (a: Ajuste) => void
+  maxGrado: number
+  grupos: GrupoCurva[]
+  colores: Record<string, string>
+  setColor: (k: string, c: string) => void
+  children?: React.ReactNode
+}) {
+  const grado = Math.min(ajuste.grado, maxGrado)
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="icon" aria-label="Configurar gráfico">
+          <Settings2 className="h-4 w-4" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-80 space-y-4">
+        <div className="space-y-2">
+          <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Regresión</div>
+          <div className="flex gap-1 rounded-md bg-muted p-1">
+            {([["log", "log"], ["poly", "poly"], ["none", "ninguna"]] as const).map(([t, label]) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => setAjuste({ ...ajuste, tipo: t })}
+                className={`flex-1 rounded px-2 py-1 text-xs transition-colors ${
+                  ajuste.tipo === t
+                    ? "bg-background font-medium text-primary shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          {ajuste.tipo === "none" && (
+            <p className="text-xs text-muted-foreground">Une los puntos tal cual, sin ajustar.</p>
+          )}
+        </div>
+
+        {ajuste.tipo === "poly" && (
+          <div className="space-y-2">
+            <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Grado</div>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" size="icon" className="h-8 w-8"
+                onClick={() => setAjuste({ ...ajuste, grado: Math.max(1, grado - 1) })}
+                disabled={grado <= 1} aria-label="Bajar grado">
+                <Minus className="h-3.5 w-3.5" />
+              </Button>
+              <div className="w-12 rounded-md border py-1 text-center text-sm tabular-nums">{grado}</div>
+              <Button variant="outline" size="icon" className="h-8 w-8"
+                onClick={() => setAjuste({ ...ajuste, grado: Math.min(maxGrado, grado + 1) })}
+                disabled={grado >= maxGrado} aria-label="Subir grado">
+                <Plus className="h-3.5 w-3.5" />
+              </Button>
+              <span className="text-xs text-muted-foreground">máx. {maxGrado}</span>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              El tope es la cantidad de bonos menos uno: con más grados que puntos la curva
+              pasa por todos y deja de decir nada.
+            </p>
+          </div>
+        )}
+
+        <div className="space-y-2">
+          <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Colores</div>
+          {grupos.map((g) => (
+            <div key={g.key} className="space-y-1">
+              <div className="text-xs text-muted-foreground">{g.nombre}</div>
+              <div className="flex flex-wrap gap-1.5">
+                {PALETA_LB.map((c) => (
+                  <button
+                    key={c.token}
+                    type="button"
+                    title={c.nombre}
+                    aria-label={`${g.nombre}: ${c.nombre}`}
+                    onClick={() => setColor(g.key, c.token)}
+                    style={{ background: c.token }}
+                    className={`h-6 w-6 rounded-full border transition-transform ${
+                      colores[g.key] === c.token
+                        ? "border-foreground scale-110"
+                        : "border-border hover:scale-105"
+                    }`}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {children}
+      </PopoverContent>
+    </Popover>
+  )
+}
+
+// ── Componente ───────────────────────────────────────────────────────────────
+export function CurvaForward({ flows, grupos, titulo, descripcion, prefijoShort = "Short", spread }: Props) {
   const bonos = useMemo(() => {
-    const out: Record<LeyKey, Bono[]> = { arg: [], ny: [] }
+    const out: Record<string, Bono[]> = {}
+    for (const g of grupos) out[g.key] = []
     for (const f of flows) {
-      const leg = f?.details?.legislacion
-      const key: LeyKey | null = leg === "Argentina" ? "arg" : leg === "Nueva York" ? "ny" : null
+      const g = grupos.find((x) => x.incluye(f))
       const ytm = f?.lastPrice?.ytm
       const dur = f?.lastPrice?.duration_y
-      if (!key || ytm === null || ytm === undefined || dur === null || dur === undefined) continue
-      if (!(Number(dur) > 0)) continue
-      out[key].push({
+      if (!g || ytm == null || dur == null || !(Number(dur) > 0)) continue
+      out[g.key].push({
         symbol: f.ticker,
         dur: Number(dur),
         ytm: Number(ytm),
-        px: f?.lastPrice?.closing_price ?? f?.lastPrice?.last ?? null,
+        // `last` es el precio del ticker D (AL30D), que es el que cotiza en dólares.
+        px: f?.lastPrice?.last ?? f?.lastPrice?.closing_price ?? null,
         vto: f?.details?.vencimiento ?? null,
       })
     }
-    out.arg.sort((a, b) => a.dur - b.dur)
-    out.ny.sort((a, b) => a.dur - b.dur)
+    for (const g of grupos) out[g.key].sort((a, b) => a.dur - b.dur)
     return out
-  }, [flows])
+  }, [flows, grupos])
 
-  const [short, setShort] = useState<Record<LeyKey, string>>({ arg: "", ny: "" })
-  const shortDe = (k: LeyKey) =>
-    bonos[k].find((b) => b.symbol === short[k]) ?? bonos[k][0] ?? null
+  const [colores, setColores] = useState<Record<string, string>>(() =>
+    Object.fromEntries(grupos.map((g, i) => [g.key, COLOR_INICIAL[i % COLOR_INICIAL.length]])))
+  const setColor = (k: string, c: string) => setColores((s) => ({ ...s, [k]: c }))
+
+  const [ajSpot, setAjSpot] = useState<Ajuste>({ tipo: "poly", grado: 3 })
+  const [ajFwd, setAjFwd] = useState<Ajuste>({ tipo: "log", grado: 3 })
+  const [short, setShort] = useState<Record<string, string>>({})
+
+  const shortDe = (k: string) => bonos[k]?.find((b) => b.symbol === short[k]) ?? bonos[k]?.[0] ?? null
+  const maxGrado = Math.max(1, Math.min(6, ...grupos.map((g) => Math.max(2, bonos[g.key].length) - 1)))
 
   const tramos = useMemo(() => {
-    const out: Record<LeyKey, Tramo[]> = { arg: [], ny: [] }
-    for (const { key } of LEYES) {
-      const B = bonos[key]
-      const s = shortDe(key)
+    const out: Record<string, Tramo[]> = {}
+    for (const g of grupos) {
+      out[g.key] = []
+      const B = bonos[g.key]
+      const s = shortDe(g.key)
       if (!s) continue
       const i = B.findIndex((b) => b.symbol === s.symbol)
       for (let j = i + 1; j < B.length; j++) {
-        out[key].push({ short: s, bono: B[j], dt: B[j].dur - s.dur, fwd: forward(s, B[j]) })
+        out[g.key].push({ short: s, bono: B[j], dt: B[j].dur - s.dur, fwd: forward(s, B[j]) })
       }
     }
     return out
-  }, [bonos, short])
+  }, [bonos, short, grupos])
 
-  // Una fila por duration, con la TIR de cada ley donde exista. connectNulls une
-  // los puntos de cada serie salteando las filas de la otra.
-  const datosSpot = useMemo(() => {
-    const filas = [
-      ...bonos.arg.map((b) => ({ dur: b.dur, symbol: b.symbol, arg: b.ytm, ny: null as number | null, bono: b })),
-      ...bonos.ny.map((b) => ({ dur: b.dur, symbol: b.symbol, arg: null as number | null, ny: b.ytm, bono: b })),
-    ].sort((a, b) => a.dur - b.dur)
+  /**
+   * Una fila por duration con el valor de cada grupo donde exista, más las filas
+   * del ajuste (`${key}__fit`). connectNulls une cada serie salteando las filas
+   * que no son suyas.
+   */
+  function armar(porGrupo: Record<string, { dur: number; symbol: string; y: number; meta: any }[]>, aj: Ajuste) {
+    const filas: any[] = []
+    for (const g of grupos) {
+      for (const p of porGrupo[g.key] ?? []) {
+        filas.push({ dur: p.dur, symbol: p.symbol, [g.key]: p.y, meta: p.meta })
+      }
+    }
+    filas.sort((a, b) => a.dur - b.dur)
     const dys = desplazar(filas)
-    return filas.map((f, i) => ({ ...f, dy: dys[i] }))
-  }, [bonos])
+    filas.forEach((f, i) => { f.dy = dys[i] })
 
-  const datosFwd = useMemo(() => {
-    const filas = [
-      ...tramos.arg.map((t) => ({ dur: t.bono.dur, symbol: t.bono.symbol, arg: t.fwd, ny: null as number | null, tramo: t })),
-      ...tramos.ny.map((t) => ({ dur: t.bono.dur, symbol: t.bono.symbol, arg: null as number | null, ny: t.fwd, tramo: t })),
-    ].sort((a, b) => a.dur - b.dur)
-    const dys = desplazar(filas)
-    return filas.map((f, i) => ({ ...f, dy: dys[i] }))
-  }, [tramos])
+    const fits: Record<string, ((t: number) => number) | null> = {}
+    let hayFit = false
+    for (const g of grupos) {
+      const pts = (porGrupo[g.key] ?? []).map((p) => ({ x: p.dur, y: p.y }))
+      const fn = ajustar(pts, aj)
+      fits[g.key] = fn
+      if (fn && pts.length > 1) {
+        hayFit = true
+        const lo = Math.min(...pts.map((p) => p.x)), hi = Math.max(...pts.map((p) => p.x))
+        for (let i = 0; i <= 60; i++) {
+          const t = lo + ((hi - lo) * i) / 60
+          filas.push({ dur: t, [`${g.key}__fit`]: fn(t) })
+        }
+      }
+    }
+    filas.sort((a, b) => a.dur - b.dur)
+    return { filas, hayFit }
+  }
 
-  // Mismo vencimiento en las dos leyes: la diferencia de TIR es jurisdicción pura.
+  const spotData = useMemo(() => armar(
+    Object.fromEntries(grupos.map((g) => [g.key,
+      bonos[g.key].map((b) => ({ dur: b.dur, symbol: b.symbol, y: b.ytm, meta: b }))])),
+    ajSpot,
+  ), [bonos, ajSpot, grupos])
+
+  const fwdData = useMemo(() => armar(
+    Object.fromEntries(grupos.map((g) => [g.key,
+      tramos[g.key].map((t) => ({ dur: t.bono.dur, symbol: t.bono.symbol, y: t.fwd, meta: t }))])),
+    ajFwd,
+  ), [tramos, ajFwd, grupos])
+
+  /**
+   * Spread de legislación: cociente de precios en dólares del ticker D, no
+   * diferencia de TIR. GD30D / AL30D − 1 es lo que se cotiza en el mercado.
+   */
   const pares = useMemo(() => {
-    return bonos.arg
-      .map((a) => {
-        const n = bonos.ny.find((x) => x.vto && x.vto === a.vto)
-        return n ? { a, n, bps: (a.ytm - n.ytm) * 10000 } : null
+    if (!spread || grupos.length < 2) return []
+    const [a, b] = grupos
+    return bonos[a.key]
+      .map((x) => {
+        const y = bonos[b.key].find((z) => z.vto && z.vto === x.vto)
+        if (!y || !x.px || !y.px || x.px <= 0) return null
+        return { local: x, ext: y, ratio: y.px / x.px - 1 }
       })
-      .filter(Boolean) as { a: Bono; n: Bono; bps: number }[]
-  }, [bonos])
+      .filter(Boolean) as { local: Bono; ext: Bono; ratio: number }[]
+  }, [bonos, grupos, spread])
 
-  const filasTramos = useMemo(
-    () => LEYES.flatMap(({ key, nombre }) => tramos[key].map((t) => ({ t, ley: nombre, key })))
-             .sort((x, y) => x.t.bono.dur - y.t.bono.dur),
-    [tramos],
-  )
+  const total = grupos.reduce((n, g) => n + bonos[g.key].length, 0)
+  if (!total) return null
 
-  if (!bonos.arg.length && !bonos.ny.length) return null
+  const dominioX = (filas: any[]): [number, number] => {
+    const ds = filas.map((f) => f.dur)
+    return [Math.min(...ds), Math.max(...ds)]
+  }
+
+  const Grafico = ({ datos, aj, tip }: { datos: { filas: any[]; hayFit: boolean }; aj: Ajuste; tip: any }) => {
+    if (!datos.filas.length) {
+      return <p className="py-12 text-center text-sm text-muted-foreground">Sin datos para graficar.</p>
+    }
+    const [x0, x1] = dominioX(datos.filas)
+    return (
+      <ResponsiveContainer width="100%" height={320}>
+        <LineChart data={datos.filas} margin={{ top: 24, right: 28, bottom: 8, left: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+          <XAxis
+            type="number" dataKey="dur" domain={[x0 - 0.2, x1 + 0.2]}
+            ticks={marcasX(x0, x1)}
+            tickFormatter={(v: number) => `${v.toFixed(1)}y`}
+            tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
+            stroke="var(--border)"
+          />
+          <YAxis
+            width={52} tickFormatter={(v: number) => `${(v * 100).toFixed(1)}%`}
+            tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
+            stroke="var(--border)" domain={["auto", "auto"]}
+          />
+          <Tooltip content={tip} />
+          {datos.hayFit && grupos.map((g) => (
+            <Line key={`${g.key}-fit`} type="monotone" dataKey={`${g.key}__fit`} stroke={colores[g.key]}
+              strokeWidth={2} dot={false} connectNulls isAnimationActive={false} legendType="none" />
+          ))}
+          {grupos.map((g) => (
+            <Line key={g.key} type="linear" dataKey={g.key} name={g.nombre}
+              stroke={datos.hayFit ? "transparent" : colores[g.key]}
+              strokeWidth={2} connectNulls isAnimationActive={false}
+              dot={<Punto dataKey={g.key} color={colores[g.key]} />} activeDot={{ r: 6 }} />
+          ))}
+          {aj === ajFwd && grupos.map((g) => {
+            const s = shortDe(g.key)
+            return s ? (
+              <ReferenceLine key={`r-${g.key}`} x={s.dur} stroke={colores[g.key]} strokeDasharray="3 4"
+                strokeOpacity={0.5}
+                label={{ value: `short ${s.symbol}`, position: "top", fontSize: 10, fill: colores[g.key] }} />
+            ) : null
+          })}
+        </LineChart>
+      </ResponsiveContainer>
+    )
+  }
 
   const TipSpot = ({ active, payload }: any) => {
-    if (!active || !payload?.length) return null
-    const b: Bono = payload[0].payload.bono
+    const b: Bono | undefined = payload?.[0]?.payload?.meta
+    if (!active || !b?.symbol) return null
     return (
       <div style={estiloTooltip} className="px-3 py-2">
         <div className="font-medium">{b.symbol}</div>
         <div className="text-muted-foreground">Vto. {b.vto ?? "—"}</div>
-        <div className="tabular-nums">Duration {b.dur.toFixed(3)} años</div>
-        <div className="tabular-nums font-medium">TIR {pct(b.ytm)}</div>
+        <div className="tabular-nums">Duration {b.dur.toFixed(2)} años</div>
+        <div className="font-medium tabular-nums">TIR {pct(b.ytm)}</div>
       </div>
     )
   }
   const TipFwd = ({ active, payload }: any) => {
-    if (!active || !payload?.length) return null
-    const t: Tramo = payload[0].payload.tramo
+    const t: Tramo | undefined = payload?.[0]?.payload?.meta
+    if (!active || !t?.bono) return null
     return (
       <div style={estiloTooltip} className="px-3 py-2">
         <div className="font-medium">{t.short.symbol} → {t.bono.symbol}</div>
         <div className="tabular-nums text-muted-foreground">
           {t.short.dur.toFixed(2)}y · {pct(t.short.ytm)} → {t.bono.dur.toFixed(2)}y · {pct(t.bono.ytm)}
         </div>
-        <div className="tabular-nums">Tramo {t.dt.toFixed(3)} años</div>
-        <div className="tabular-nums font-medium">Forward {pct(t.fwd)}</div>
+        <div className="font-medium tabular-nums">Forward {pct(t.fwd)}</div>
       </div>
     )
   }
 
+  const leyenda = (
+    <div className="flex flex-wrap gap-4">
+      {grupos.map((g) => (
+        <span key={g.key} className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+          <span className="h-0.5 w-4 rounded" style={{ background: colores[g.key] }} />
+          {g.nombre}
+        </span>
+      ))}
+    </div>
+  )
+  const pieAjuste = (aj: Ajuste) =>
+    aj.tipo === "none" ? "Puntos unidos, sin ajuste."
+      : aj.tipo === "log" ? "Ajuste logarítmico sobre los puntos."
+      : `Ajuste polinómico de grado ${Math.min(aj.grado, maxGrado)} sobre los puntos.`
+
   return (
     <div className="space-y-6">
       <Card>
-        <CardHeader>
-          <CardTitle>Curva y forwards por legislación</CardTitle>
-          <CardDescription>
-            Se calcula en vivo sobre el precio del momento, sin persistir nada. Cada bono
-            se ubica en su duration de Macaulay, y el forward de cada uno se mide contra el
-            short de su propia legislación. Ley Argentina y ley Nueva York van por separado:
-            comparten flujo y emisor, así que mezclarlas leería el riesgo de jurisdicción
-            como si fuera plazo.
-          </CardDescription>
-          <div className="flex flex-wrap gap-4 pt-3">
-            {LEYES.map(({ key, nombre, color }) => (
-              <div key={key} className="space-y-1.5">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <span className="h-2 w-2 rounded-full" style={{ background: color }} />
-                  Short ley {nombre}
-                </div>
-                <Select
-                  value={shortDe(key)?.symbol ?? ""}
-                  onValueChange={(v) => setShort((s) => ({ ...s, [key]: v }))}
-                  disabled={bonos[key].length < 2}
-                >
-                  <SelectTrigger className="w-[230px] tabular-nums">
-                    <SelectValue placeholder="Sin datos" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {bonos[key].slice(0, -1).map((b) => (
-                      <SelectItem key={b.symbol} value={b.symbol} className="tabular-nums">
-                        {b.symbol} · {b.dur.toFixed(2)}y · {pct(b.ytm)}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            ))}
-            <p className="self-end pb-2 text-xs text-muted-foreground max-w-[280px]">
-              Los bonos más cortos que el short quedan fuera de la curva forward.
-            </p>
+        <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
+          <div className="space-y-1.5">
+            <CardTitle className="text-lg">{titulo} · curva spot</CardTitle>
+            <CardDescription>{descripcion} {pieAjuste(ajSpot)}</CardDescription>
+            {leyenda}
           </div>
+          <Rueda ajuste={ajSpot} setAjuste={setAjSpot} maxGrado={maxGrado}
+            grupos={grupos} colores={colores} setColor={setColor} />
         </CardHeader>
+        <CardContent><Grafico datos={spotData} aj={ajSpot} tip={<TipSpot />} /></CardContent>
       </Card>
 
       <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Curva spot</CardTitle>
-          <CardDescription>TIR de cada bono contra su duration de Macaulay.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={320}>
-            <LineChart data={datosSpot} margin={{ top: 24, right: 24, bottom: 8, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-              <XAxis {...ejeX} />
-              <YAxis {...ejeY} />
-              <Tooltip content={<TipSpot />} />
-              {LEYES.map(({ key, nombre, color }) => (
-                <Line key={key} type="linear" dataKey={key} name={`Ley ${nombre}`} stroke={color}
-                  strokeWidth={2} connectNulls isAnimationActive={false}
-                  dot={<Punto dataKey={key} color={color} />} activeDot={{ r: 6 }} />
+        <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
+          <div className="space-y-1.5">
+            <CardTitle className="text-lg">{titulo} · curvas forward</CardTitle>
+            <CardDescription>
+              Tasa implícita entre el short de cada grupo y ese bono. {pieAjuste(ajFwd)}
+            </CardDescription>
+            {leyenda}
+          </div>
+          <Rueda ajuste={ajFwd} setAjuste={setAjFwd} maxGrado={maxGrado}
+            grupos={grupos} colores={colores} setColor={setColor}>
+            <div className="space-y-2 border-t pt-3">
+              <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                Bono short
+              </div>
+              {grupos.map((g) => (
+                <div key={g.key} className="space-y-1">
+                  <div className="text-xs text-muted-foreground">{prefijoShort} {g.nombre}</div>
+                  <Select
+                    value={shortDe(g.key)?.symbol ?? ""}
+                    onValueChange={(v) => setShort((s) => ({ ...s, [g.key]: v }))}
+                    disabled={bonos[g.key].length < 2}
+                  >
+                    <SelectTrigger className="tabular-nums"><SelectValue placeholder="Sin datos" /></SelectTrigger>
+                    <SelectContent>
+                      {bonos[g.key].slice(0, -1).map((b) => (
+                        <SelectItem key={b.symbol} value={b.symbol} className="tabular-nums">
+                          {b.symbol} · {b.dur.toFixed(1)}y · {pct(b.ytm)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               ))}
-            </LineChart>
-          </ResponsiveContainer>
-        </CardContent>
+              <p className="text-xs text-muted-foreground">
+                Los bonos más cortos que el short quedan fuera de la curva.
+              </p>
+            </div>
+          </Rueda>
+        </CardHeader>
+        <CardContent><Grafico datos={fwdData} aj={ajFwd} tip={<TipFwd />} /></CardContent>
       </Card>
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Curvas forward</CardTitle>
-          <CardDescription className="tabular-nums">
-            Tasa implícita entre el short de cada legislación y ese bono. Short ley Argentina:{" "}
-            {shortDe("arg")?.symbol ?? "—"} · short ley Nueva York: {shortDe("ny")?.symbol ?? "—"}.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={320}>
-            <LineChart data={datosFwd} margin={{ top: 24, right: 24, bottom: 8, left: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-              <XAxis {...ejeX} />
-              <YAxis {...ejeY} />
-              <Tooltip content={<TipFwd />} />
-              {LEYES.map(({ key, color }) => {
-                const s = shortDe(key)
-                return s ? (
-                  <ReferenceLine key={`r-${key}`} x={s.dur} stroke={color} strokeDasharray="3 4"
-                    strokeOpacity={0.5}
-                    label={{ value: `short ${s.symbol}`, position: "top", fontSize: 10, fill: color }} />
-                ) : null
-              })}
-              {LEYES.map(({ key, nombre, color }) => (
-                <Line key={key} type="linear" dataKey={key} name={`Ley ${nombre}`} stroke={color}
-                  strokeWidth={2} connectNulls isAnimationActive={false}
-                  dot={<Punto dataKey={key} color={color} />} activeDot={{ r: 6 }} />
-              ))}
-            </LineChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Forward de cada bono contra su short</CardTitle>
-          <CardDescription>
-            F₁,₂ = [ (1+R₂)^t₂ / (1+R₁)^t₁ ] ^ ( 1 / (t₂ − t₁) ) − 1, con t = duration de Macaulay.
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Tramo</TableHead>
-                <TableHead>Legislación</TableHead>
-                <TableHead className="text-right">t₁</TableHead>
-                <TableHead className="text-right">t₂</TableHead>
-                <TableHead className="text-right">Δt</TableHead>
-                <TableHead className="text-right">R₁</TableHead>
-                <TableHead className="text-right">R₂</TableHead>
-                <TableHead className="text-right">Forward</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filasTramos.map(({ t, ley, key }) => (
-                <TableRow key={`${key}-${t.bono.symbol}`}>
-                  <TableCell className="font-medium whitespace-nowrap">
-                    <span className="inline-flex items-center gap-2">
-                      <span className="h-2 w-2 rounded-full"
-                        style={{ background: LEYES.find((l) => l.key === key)!.color }} />
-                      {t.short.symbol} → {t.bono.symbol}
-                    </span>
-                  </TableCell>
-                  <TableCell>{ley}</TableCell>
-                  <TableCell className="text-right tabular-nums">{t.short.dur.toFixed(3)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{t.bono.dur.toFixed(3)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{t.dt.toFixed(3)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{pct(t.short.ytm)}</TableCell>
-                  <TableCell className="text-right tabular-nums">{pct(t.bono.ytm)}</TableCell>
-                  <TableCell className="text-right tabular-nums font-medium">{pct(t.fwd)}</TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </CardContent>
-      </Card>
-
-      {pares.length > 0 && (
+      {spread && pares.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle className="text-lg">Spread de legislación, par contra par</CardTitle>
-            <CardDescription>
-              Bonos con vencimiento idéntico en las dos leyes. Mismo flujo, mismo emisor,
-              misma fecha: la diferencia de TIR es riesgo de jurisdicción y nada más, sin
-              interpolar ninguna curva.
-            </CardDescription>
+            <CardTitle className="text-lg">{spread.titulo}</CardTitle>
+            <CardDescription>{spread.descripcion}</CardDescription>
           </CardHeader>
           <CardContent>
             <Table>
@@ -360,19 +568,21 @@ export function CurvaForward({ flows }: { flows: any[] }) {
                 <TableRow>
                   <TableHead>Par</TableHead>
                   <TableHead>Vencimiento</TableHead>
-                  <TableHead className="text-right">TIR ley Argentina</TableHead>
-                  <TableHead className="text-right">TIR ley Nueva York</TableHead>
+                  <TableHead className="text-right">{grupos[0].nombre}</TableHead>
+                  <TableHead className="text-right">{grupos[1].nombre}</TableHead>
                   <TableHead className="text-right">Spread</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {pares.map(({ a, n, bps: b }) => (
-                  <TableRow key={a.symbol}>
-                    <TableCell className="font-medium whitespace-nowrap">{a.symbol} / {n.symbol}</TableCell>
-                    <TableCell>{a.vto}</TableCell>
-                    <TableCell className="text-right tabular-nums">{pct(a.ytm)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{pct(n.ytm)}</TableCell>
-                    <TableCell className="text-right tabular-nums font-medium">{bps(b)}</TableCell>
+                {pares.map(({ local, ext, ratio }) => (
+                  <TableRow key={local.symbol}>
+                    <TableCell className="whitespace-nowrap font-medium">
+                      {ext.symbol}D / {local.symbol}D
+                    </TableCell>
+                    <TableCell>{local.vto}</TableCell>
+                    <TableCell className="text-right tabular-nums">{local.px?.toFixed(2) ?? "—"}</TableCell>
+                    <TableCell className="text-right tabular-nums">{ext.px?.toFixed(2) ?? "—"}</TableCell>
+                    <TableCell className="text-right font-medium tabular-nums">{pct(ratio)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>
