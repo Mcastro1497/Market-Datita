@@ -17,6 +17,10 @@
  * jurisdicción se leería como si fuera plazo. En dólar linked hay un solo grupo.
  * Ojo al reusarlo en pesos: la TIR de un CER es REAL y la de un FIJA es NOMINAL,
  * y ésas no comparten eje.
+ *
+ * La spot va con todos los grupos juntos, que es donde se ve el spread entre
+ * curvas. Las forward van una por grupo: cada una arranca en su propio short y
+ * superpuestas no se comparan contra nada.
  */
 
 import { useMemo, useState } from "react"
@@ -27,7 +31,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Minus, Plus, Settings2 } from "lucide-react"
 import {
-  CartesianGrid, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
+  Bar, BarChart, CartesianGrid, LabelList, Line, LineChart, ReferenceLine,
+  ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts"
 
 type Bono = { symbol: string; dur: number; ytm: number; px: number | null; vto: string | null }
@@ -40,18 +45,24 @@ export type GrupoCurva = {
   incluye: (flow: any) => boolean
 }
 
-/** Paleta de LB. Son tokens, así que cambian solos con el tema. */
-export const PALETA_LB = [
-  { token: "var(--chart-1)", nombre: "Violeta" },
-  { token: "var(--chart-4)", nombre: "Violeta oscuro" },
-  { token: "var(--chart-2)", nombre: "Violeta claro" },
-  { token: "var(--chart-5)", nombre: "Lavanda" },
-  { token: "var(--chart-3)", nombre: "Verde" },
-  { token: "var(--success)", nombre: "Verde oscuro" },
-  { token: "var(--destructive)", nombre: "Rojo" },
-  { token: "var(--foreground)", nombre: "Tinta" },
+/**
+ * Paleta. Los violetas son tokens de LB y cambian solos con el tema; los naranjas
+ * son literales porque la marca no tiene ninguno, y con puro violeta dos series no
+ * se distinguen. El verde menta de --chart-3 quedó afuera: contra el fondo claro
+ * (#fbfafd) casi no se ve.
+ */
+export const PALETA = [
+  { c: "var(--chart-1)", nombre: "Violeta" },
+  { c: "var(--chart-4)", nombre: "Violeta oscuro" },
+  { c: "var(--chart-2)", nombre: "Violeta claro" },
+  { c: "var(--chart-5)", nombre: "Lavanda" },
+  { c: "#c2410c", nombre: "Naranja oscuro" },
+  { c: "#ea580c", nombre: "Naranja" },
+  { c: "var(--success)", nombre: "Verde oscuro" },
+  { c: "var(--destructive)", nombre: "Rojo" },
+  { c: "var(--foreground)", nombre: "Tinta" },
 ]
-const COLOR_INICIAL = ["var(--chart-1)", "var(--chart-3)", "var(--chart-2)", "var(--success)"]
+const COLOR_INICIAL = ["var(--chart-1)", "#c2410c", "var(--chart-4)", "var(--success)"]
 
 type TipoAjuste = "none" | "log" | "poly"
 type Ajuste = { tipo: TipoAjuste; grado: number }
@@ -60,10 +71,7 @@ type Props = {
   flows: any[]
   grupos: GrupoCurva[]
   titulo: string
-  descripcion: string
-  /** Etiqueta del selector de short: "Short ley Argentina" vs "Short". */
-  prefijoShort?: string
-  /** Tabla de spread entre los dos primeros grupos, por bonos de igual vencimiento. */
+  /** Tabla y columnas de spread entre los dos primeros grupos, por igual vencimiento. */
   spread?: { titulo: string; descripcion: string }
 }
 
@@ -231,9 +239,6 @@ function Rueda({
               </button>
             ))}
           </div>
-          {ajuste.tipo === "none" && (
-            <p className="text-xs text-muted-foreground">Une los puntos tal cual, sin ajustar.</p>
-          )}
         </div>
 
         {ajuste.tipo === "poly" && (
@@ -253,31 +258,27 @@ function Rueda({
               </Button>
               <span className="text-xs text-muted-foreground">máx. {maxGrado}</span>
             </div>
-            <p className="text-xs text-muted-foreground">
-              El tope es la cantidad de bonos menos uno: con más grados que puntos la curva
-              pasa por todos y deja de decir nada.
-            </p>
           </div>
         )}
 
         <div className="space-y-2">
-          <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Colores</div>
+          <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+            {grupos.length > 1 ? "Colores" : "Color"}
+          </div>
           {grupos.map((g) => (
             <div key={g.key} className="space-y-1">
-              <div className="text-xs text-muted-foreground">{g.nombre}</div>
+              {grupos.length > 1 && <div className="text-xs text-muted-foreground">{g.nombre}</div>}
               <div className="flex flex-wrap gap-1.5">
-                {PALETA_LB.map((c) => (
+                {PALETA.map((p) => (
                   <button
-                    key={c.token}
+                    key={p.c}
                     type="button"
-                    title={c.nombre}
-                    aria-label={`${g.nombre}: ${c.nombre}`}
-                    onClick={() => setColor(g.key, c.token)}
-                    style={{ background: c.token }}
+                    title={p.nombre}
+                    aria-label={`${g.nombre}: ${p.nombre}`}
+                    onClick={() => setColor(g.key, p.c)}
+                    style={{ background: p.c }}
                     className={`h-6 w-6 rounded-full border transition-transform ${
-                      colores[g.key] === c.token
-                        ? "border-foreground scale-110"
-                        : "border-border hover:scale-105"
+                      colores[g.key] === p.c ? "scale-110 border-foreground" : "border-border hover:scale-105"
                     }`}
                   />
                 ))}
@@ -293,7 +294,7 @@ function Rueda({
 }
 
 // ── Componente ───────────────────────────────────────────────────────────────
-export function CurvaForward({ flows, grupos, titulo, descripcion, prefijoShort = "Short", spread }: Props) {
+export function CurvaForward({ flows, grupos, titulo, spread }: Props) {
   const bonos = useMemo(() => {
     const out: Record<string, Bono[]> = {}
     for (const g of grupos) out[g.key] = []
@@ -320,11 +321,13 @@ export function CurvaForward({ flows, grupos, titulo, descripcion, prefijoShort 
   const setColor = (k: string, c: string) => setColores((s) => ({ ...s, [k]: c }))
 
   const [ajSpot, setAjSpot] = useState<Ajuste>({ tipo: "poly", grado: 3 })
-  const [ajFwd, setAjFwd] = useState<Ajuste>({ tipo: "log", grado: 3 })
+  const [ajFwd, setAjFwd] = useState<Record<string, Ajuste>>(() =>
+    Object.fromEntries(grupos.map((g) => [g.key, { tipo: "log" as TipoAjuste, grado: 3 }])))
   const [short, setShort] = useState<Record<string, string>>({})
 
   const shortDe = (k: string) => bonos[k]?.find((b) => b.symbol === short[k]) ?? bonos[k]?.[0] ?? null
-  const maxGrado = Math.max(1, Math.min(6, ...grupos.map((g) => Math.max(2, bonos[g.key].length) - 1)))
+  const gradoTope = (k: string) => Math.max(1, Math.min(6, bonos[k].length - 1))
+  const gradoTopeTodos = Math.max(1, Math.min(...grupos.map((g) => gradoTope(g.key))))
 
   const tramos = useMemo(() => {
     const out: Record<string, Tramo[]> = {}
@@ -346,9 +349,13 @@ export function CurvaForward({ flows, grupos, titulo, descripcion, prefijoShort 
    * del ajuste (`${key}__fit`). connectNulls une cada serie salteando las filas
    * que no son suyas.
    */
-  function armar(porGrupo: Record<string, { dur: number; symbol: string; y: number; meta: any }[]>, aj: Ajuste) {
+  function armar(
+    cuales: GrupoCurva[],
+    porGrupo: Record<string, { dur: number; symbol: string; y: number; meta: any }[]>,
+    aj: (k: string) => Ajuste,
+  ) {
     const filas: any[] = []
-    for (const g of grupos) {
+    for (const g of cuales) {
       for (const p of porGrupo[g.key] ?? []) {
         filas.push({ dur: p.dur, symbol: p.symbol, [g.key]: p.y, meta: p.meta })
       }
@@ -357,12 +364,10 @@ export function CurvaForward({ flows, grupos, titulo, descripcion, prefijoShort 
     const dys = desplazar(filas)
     filas.forEach((f, i) => { f.dy = dys[i] })
 
-    const fits: Record<string, ((t: number) => number) | null> = {}
     let hayFit = false
-    for (const g of grupos) {
+    for (const g of cuales) {
       const pts = (porGrupo[g.key] ?? []).map((p) => ({ x: p.dur, y: p.y }))
-      const fn = ajustar(pts, aj)
-      fits[g.key] = fn
+      const fn = ajustar(pts, aj(g.key))
       if (fn && pts.length > 1) {
         hayFit = true
         const lo = Math.min(...pts.map((p) => p.x)), hi = Math.max(...pts.map((p) => p.x))
@@ -377,16 +382,17 @@ export function CurvaForward({ flows, grupos, titulo, descripcion, prefijoShort 
   }
 
   const spotData = useMemo(() => armar(
+    grupos,
     Object.fromEntries(grupos.map((g) => [g.key,
       bonos[g.key].map((b) => ({ dur: b.dur, symbol: b.symbol, y: b.ytm, meta: b }))])),
-    ajSpot,
+    () => ajSpot,
   ), [bonos, ajSpot, grupos])
 
-  const fwdData = useMemo(() => armar(
-    Object.fromEntries(grupos.map((g) => [g.key,
-      tramos[g.key].map((t) => ({ dur: t.bono.dur, symbol: t.bono.symbol, y: t.fwd, meta: t }))])),
-    ajFwd,
-  ), [tramos, ajFwd, grupos])
+  const fwdData = useMemo(() => Object.fromEntries(grupos.map((g) => [g.key, armar(
+    [g],
+    { [g.key]: tramos[g.key].map((t) => ({ dur: t.bono.dur, symbol: t.bono.symbol, y: t.fwd, meta: t })) },
+    () => ajFwd[g.key],
+  )])), [tramos, ajFwd, grupos])
 
   /**
    * Spread de legislación: cociente de precios en dólares del ticker D, no
@@ -399,26 +405,23 @@ export function CurvaForward({ flows, grupos, titulo, descripcion, prefijoShort 
       .map((x) => {
         const y = bonos[b.key].find((z) => z.vto && z.vto === x.vto)
         if (!y || !x.px || !y.px || x.px <= 0) return null
-        return { local: x, ext: y, ratio: y.px / x.px - 1 }
+        return { local: x, ext: y, ratio: y.px / x.px - 1, par: `${y.symbol}D/${x.symbol}D` }
       })
-      .filter(Boolean) as { local: Bono; ext: Bono; ratio: number }[]
+      .filter(Boolean) as { local: Bono; ext: Bono; ratio: number; par: string }[]
   }, [bonos, grupos, spread])
 
-  const total = grupos.reduce((n, g) => n + bonos[g.key].length, 0)
-  if (!total) return null
+  if (!grupos.reduce((n, g) => n + bonos[g.key].length, 0)) return null
 
-  const dominioX = (filas: any[]): [number, number] => {
-    const ds = filas.map((f) => f.dur)
-    return [Math.min(...ds), Math.max(...ds)]
-  }
-
-  const Grafico = ({ datos, aj, tip }: { datos: { filas: any[]; hayFit: boolean }; aj: Ajuste; tip: any }) => {
+  const Grafico = ({
+    datos, cuales, tip, shortsVisibles,
+  }: { datos: { filas: any[]; hayFit: boolean }; cuales: GrupoCurva[]; tip: any; shortsVisibles?: boolean }) => {
     if (!datos.filas.length) {
       return <p className="py-12 text-center text-sm text-muted-foreground">Sin datos para graficar.</p>
     }
-    const [x0, x1] = dominioX(datos.filas)
+    const ds = datos.filas.map((f) => f.dur)
+    const x0 = Math.min(...ds), x1 = Math.max(...ds)
     return (
-      <ResponsiveContainer width="100%" height={320}>
+      <ResponsiveContainer width="100%" height={300}>
         <LineChart data={datos.filas} margin={{ top: 24, right: 28, bottom: 8, left: 0 }}>
           <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
           <XAxis
@@ -434,21 +437,21 @@ export function CurvaForward({ flows, grupos, titulo, descripcion, prefijoShort 
             stroke="var(--border)" domain={["auto", "auto"]}
           />
           <Tooltip content={tip} />
-          {datos.hayFit && grupos.map((g) => (
+          {datos.hayFit && cuales.map((g) => (
             <Line key={`${g.key}-fit`} type="monotone" dataKey={`${g.key}__fit`} stroke={colores[g.key]}
               strokeWidth={2} dot={false} connectNulls isAnimationActive={false} legendType="none" />
           ))}
-          {grupos.map((g) => (
+          {cuales.map((g) => (
             <Line key={g.key} type="linear" dataKey={g.key} name={g.nombre}
               stroke={datos.hayFit ? "transparent" : colores[g.key]}
               strokeWidth={2} connectNulls isAnimationActive={false}
               dot={<Punto dataKey={g.key} color={colores[g.key]} />} activeDot={{ r: 6 }} />
           ))}
-          {aj === ajFwd && grupos.map((g) => {
+          {shortsVisibles && cuales.map((g) => {
             const s = shortDe(g.key)
             return s ? (
               <ReferenceLine key={`r-${g.key}`} x={s.dur} stroke={colores[g.key]} strokeDasharray="3 4"
-                strokeOpacity={0.5}
+                strokeOpacity={0.6}
                 label={{ value: `short ${s.symbol}`, position: "top", fontSize: 10, fill: colores[g.key] }} />
             ) : null
           })}
@@ -483,9 +486,9 @@ export function CurvaForward({ flows, grupos, titulo, descripcion, prefijoShort 
     )
   }
 
-  const leyenda = (
+  const leyenda = (cuales: GrupoCurva[]) => (
     <div className="flex flex-wrap gap-4">
-      {grupos.map((g) => (
+      {cuales.map((g) => (
         <span key={g.key} className="inline-flex items-center gap-2 text-xs text-muted-foreground">
           <span className="h-0.5 w-4 rounded" style={{ background: colores[g.key] }} />
           {g.nombre}
@@ -493,68 +496,66 @@ export function CurvaForward({ flows, grupos, titulo, descripcion, prefijoShort 
       ))}
     </div>
   )
-  const pieAjuste = (aj: Ajuste) =>
-    aj.tipo === "none" ? "Puntos unidos, sin ajuste."
-      : aj.tipo === "log" ? "Ajuste logarítmico sobre los puntos."
-      : `Ajuste polinómico de grado ${Math.min(aj.grado, maxGrado)} sobre los puntos.`
+
+  const colorSpread = colores[grupos[grupos.length - 1].key]
 
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <CardTitle className="text-lg">{titulo} · curva spot</CardTitle>
-            <CardDescription>{descripcion} {pieAjuste(ajSpot)}</CardDescription>
-            {leyenda}
+            {leyenda(grupos)}
           </div>
-          <Rueda ajuste={ajSpot} setAjuste={setAjSpot} maxGrado={maxGrado}
+          <Rueda ajuste={ajSpot} setAjuste={setAjSpot} maxGrado={gradoTopeTodos}
             grupos={grupos} colores={colores} setColor={setColor} />
         </CardHeader>
-        <CardContent><Grafico datos={spotData} aj={ajSpot} tip={<TipSpot />} /></CardContent>
+        <CardContent>
+          <Grafico datos={spotData} cuales={grupos} tip={<TipSpot />} />
+        </CardContent>
       </Card>
 
-      <Card>
-        <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
-          <div className="space-y-1.5">
-            <CardTitle className="text-lg">{titulo} · curvas forward</CardTitle>
-            <CardDescription>
-              Tasa implícita entre el short de cada grupo y ese bono. {pieAjuste(ajFwd)}
-            </CardDescription>
-            {leyenda}
-          </div>
-          <Rueda ajuste={ajFwd} setAjuste={setAjFwd} maxGrado={maxGrado}
-            grupos={grupos} colores={colores} setColor={setColor}>
-            <div className="space-y-2 border-t pt-3">
-              <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                Bono short
-              </div>
-              {grupos.map((g) => (
-                <div key={g.key} className="space-y-1">
-                  <div className="text-xs text-muted-foreground">{prefijoShort} {g.nombre}</div>
-                  <Select
-                    value={shortDe(g.key)?.symbol ?? ""}
-                    onValueChange={(v) => setShort((s) => ({ ...s, [g.key]: v }))}
-                    disabled={bonos[g.key].length < 2}
-                  >
-                    <SelectTrigger className="tabular-nums"><SelectValue placeholder="Sin datos" /></SelectTrigger>
-                    <SelectContent>
-                      {bonos[g.key].slice(0, -1).map((b) => (
-                        <SelectItem key={b.symbol} value={b.symbol} className="tabular-nums">
-                          {b.symbol} · {b.dur.toFixed(1)}y · {pct(b.ytm)}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              ))}
-              <p className="text-xs text-muted-foreground">
-                Los bonos más cortos que el short quedan fuera de la curva.
-              </p>
+      {grupos.map((g) => (
+        <Card key={g.key}>
+          <CardHeader className="flex-row items-start justify-between gap-4 space-y-0">
+            <div className="space-y-2">
+              <CardTitle className="text-lg">
+                Forward {grupos.length > 1 ? g.nombre.toLowerCase() : titulo.toLowerCase()}
+              </CardTitle>
+              {leyenda([g])}
             </div>
-          </Rueda>
-        </CardHeader>
-        <CardContent><Grafico datos={fwdData} aj={ajFwd} tip={<TipFwd />} /></CardContent>
-      </Card>
+            <Rueda ajuste={ajFwd[g.key]} maxGrado={gradoTope(g.key)}
+              setAjuste={(a) => setAjFwd((s) => ({ ...s, [g.key]: a }))}
+              grupos={[g]} colores={colores} setColor={setColor}>
+              <div className="space-y-2 border-t pt-3">
+                <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Bono short
+                </div>
+                <Select
+                  value={shortDe(g.key)?.symbol ?? ""}
+                  onValueChange={(v) => setShort((s) => ({ ...s, [g.key]: v }))}
+                  disabled={bonos[g.key].length < 2}
+                >
+                  <SelectTrigger className="tabular-nums"><SelectValue placeholder="Sin datos" /></SelectTrigger>
+                  <SelectContent>
+                    {bonos[g.key].slice(0, -1).map((b) => (
+                      <SelectItem key={b.symbol} value={b.symbol} className="tabular-nums">
+                        {b.symbol} · {b.dur.toFixed(1)}y · {pct(b.ytm)}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">
+                  Los bonos más cortos que el short quedan fuera de la curva.
+                </p>
+              </div>
+            </Rueda>
+          </CardHeader>
+          <CardContent>
+            <Grafico datos={fwdData[g.key]} cuales={[g]} tip={<TipFwd />} shortsVisibles />
+          </CardContent>
+        </Card>
+      ))}
 
       {spread && pares.length > 0 && (
         <Card>
@@ -562,7 +563,40 @@ export function CurvaForward({ flows, grupos, titulo, descripcion, prefijoShort 
             <CardTitle className="text-lg">{spread.titulo}</CardTitle>
             <CardDescription>{spread.descripcion}</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-6">
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={pares} margin={{ top: 26, right: 8, bottom: 4, left: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+                <XAxis dataKey="par" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
+                  stroke="var(--border)" interval={0} />
+                <YAxis width={52} tickFormatter={(v: number) => `${(v * 100).toFixed(1)}%`}
+                  tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} stroke="var(--border)" />
+                <Tooltip
+                  cursor={{ fill: "var(--muted)", opacity: 0.5 }}
+                  content={({ active, payload }: any) => {
+                    const p = payload?.[0]?.payload
+                    if (!active || !p) return null
+                    return (
+                      <div style={estiloTooltip} className="px-3 py-2">
+                        <div className="font-medium">{p.par}</div>
+                        <div className="text-muted-foreground">Vto. {p.local.vto}</div>
+                        <div className="tabular-nums">
+                          {p.ext.px?.toFixed(2)} / {p.local.px?.toFixed(2)}
+                        </div>
+                        <div className="font-medium tabular-nums">Spread {pct(p.ratio)}</div>
+                      </div>
+                    )
+                  }}
+                />
+                <Bar dataKey="ratio" fill={colorSpread} radius={[4, 4, 0, 0]}
+                  maxBarSize={64} isAnimationActive={false}>
+                  <LabelList dataKey="ratio" position="top" offset={8}
+                    formatter={(v: number) => pct(v)}
+                    style={{ fontSize: 11, fill: "var(--foreground)" }} />
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+
             <Table>
               <TableHeader>
                 <TableRow>
@@ -574,15 +608,13 @@ export function CurvaForward({ flows, grupos, titulo, descripcion, prefijoShort 
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {pares.map(({ local, ext, ratio }) => (
-                  <TableRow key={local.symbol}>
-                    <TableCell className="whitespace-nowrap font-medium">
-                      {ext.symbol}D / {local.symbol}D
-                    </TableCell>
-                    <TableCell>{local.vto}</TableCell>
-                    <TableCell className="text-right tabular-nums">{local.px?.toFixed(2) ?? "—"}</TableCell>
-                    <TableCell className="text-right tabular-nums">{ext.px?.toFixed(2) ?? "—"}</TableCell>
-                    <TableCell className="text-right font-medium tabular-nums">{pct(ratio)}</TableCell>
+                {pares.map((p) => (
+                  <TableRow key={p.local.symbol}>
+                    <TableCell className="whitespace-nowrap font-medium">{p.par}</TableCell>
+                    <TableCell>{p.local.vto}</TableCell>
+                    <TableCell className="text-right tabular-nums">{p.local.px?.toFixed(2) ?? "—"}</TableCell>
+                    <TableCell className="text-right tabular-nums">{p.ext.px?.toFixed(2) ?? "—"}</TableCell>
+                    <TableCell className="text-right font-medium tabular-nums">{pct(p.ratio)}</TableCell>
                   </TableRow>
                 ))}
               </TableBody>

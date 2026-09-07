@@ -168,8 +168,6 @@ export default function SoberanosDashboard() {
           <CurvaForward
             flows={data.flowsWithDetails}
             titulo="Soberanos hard dollar"
-            descripcion="TIR de cada bono contra su duration de Macaulay."
-            prefijoShort="Ley"
             grupos={[
               { key: "arg", nombre: "Ley Argentina",  incluye: (f) => f?.details?.legislacion === "Argentina" },
               { key: "ny",  nombre: "Ley Nueva York", incluye: (f) => f?.details?.legislacion === "Nueva York" },
