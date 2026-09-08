@@ -28,7 +28,6 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Minus, Plus, Settings2 } from "lucide-react"
 import {
   Bar, BarChart, CartesianGrid, LabelList, Line, LineChart, ReferenceLine,
@@ -505,12 +504,15 @@ export function CurvaForward({ flows, grupos, titulo, spread }: Props) {
     )
   }
 
-  const leyenda = (cuales: GrupoCurva[]) => (
+  const leyenda = (cuales: GrupoCurva[], conShort = false) => (
     <div className="flex flex-wrap gap-4">
       {cuales.map((g) => (
         <span key={g.key} className="inline-flex items-center gap-2 text-xs text-muted-foreground">
           <span className="h-0.5 w-4 rounded" style={{ background: colores[g.key] }} />
           {g.nombre}
+          {conShort && shortDe(g.key) && (
+            <span className="tabular-nums">· short {shortDe(g.key)!.symbol}</span>
+          )}
         </span>
       ))}
     </div>
@@ -542,7 +544,7 @@ export function CurvaForward({ flows, grupos, titulo, spread }: Props) {
               <CardTitle className="text-lg">
                 Forward {grupos.length > 1 ? g.nombre.toLowerCase() : titulo.toLowerCase()}
               </CardTitle>
-              {leyenda([g])}
+              {leyenda([g], true)}
             </div>
             <Rueda ajuste={ajFwd[g.key]} maxGrado={gradoTope(g.key)}
               setAjuste={(a) => setAjFwd((s) => ({ ...s, [g.key]: a }))}
@@ -585,8 +587,9 @@ export function CurvaForward({ flows, grupos, titulo, spread }: Props) {
             <CardTitle className="text-lg">{spread.titulo}</CardTitle>
             <CardDescription>{spread.descripcion}</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
-            <ResponsiveContainer width="100%" height={260}>
+          <CardContent>
+            <div className="max-w-2xl">
+            <ResponsiveContainer width="100%" height={280}>
               <BarChart data={pares} margin={{ top: 26, right: 8, bottom: 4, left: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
                 <XAxis dataKey="par" tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
@@ -618,29 +621,7 @@ export function CurvaForward({ flows, grupos, titulo, spread }: Props) {
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
-
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Par</TableHead>
-                  <TableHead>Vencimiento</TableHead>
-                  <TableHead className="text-right">{grupos[0].nombre}</TableHead>
-                  <TableHead className="text-right">{grupos[1].nombre}</TableHead>
-                  <TableHead className="text-right">Spread</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {pares.map((p) => (
-                  <TableRow key={p.local.symbol}>
-                    <TableCell className="whitespace-nowrap font-medium">{p.par}</TableCell>
-                    <TableCell>{p.local.vto}</TableCell>
-                    <TableCell className="text-right tabular-nums">{p.local.px?.toFixed(2) ?? "—"}</TableCell>
-                    <TableCell className="text-right tabular-nums">{p.ext.px?.toFixed(2) ?? "—"}</TableCell>
-                    <TableCell className="text-right font-medium tabular-nums">{pct(p.ratio)}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            </div>
           </CardContent>
         </Card>
       )}
