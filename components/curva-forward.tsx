@@ -342,7 +342,9 @@ export function CurvaForward({ flows, grupos, titulo, spread }: Props) {
   const [short, setShort] = useState<Record<string, string>>({})
 
   const shortDe = (k: string) => bonos[k]?.find((b) => b.symbol === short[k]) ?? bonos[k]?.[0] ?? null
-  const gradoTope = (k: string) => Math.max(1, Math.min(6, bonos[k].length - 1))
+  // n-2 y no n-1: con grado n-1 el polinomio pasa exactamente por los n puntos y
+  // deja de ser un ajuste. Con 4 bonos, como dólar linked, el tope real es 2.
+  const gradoTope = (k: string) => Math.max(1, Math.min(6, bonos[k].length - 2))
   const gradoTopeTodos = Math.max(1, Math.min(...grupos.map((g) => gradoTope(g.key))))
 
   const tramos = useMemo(() => {
@@ -401,13 +403,13 @@ export function CurvaForward({ flows, grupos, titulo, spread }: Props) {
     grupos,
     Object.fromEntries(grupos.map((g) => [g.key,
       bonos[g.key].map((b) => ({ dur: b.dur, symbol: b.symbol, y: b.ytm, meta: b }))])),
-    () => ajSpot,
+    (k) => ({ ...ajSpot, grado: Math.min(ajSpot.grado, gradoTope(k)) }),
   ), [bonos, ajSpot, grupos])
 
   const fwdData = useMemo(() => Object.fromEntries(grupos.map((g) => [g.key, armar(
     [g],
     { [g.key]: tramos[g.key].map((t) => ({ dur: t.bono.dur, symbol: t.bono.symbol, y: t.fwd, meta: t })) },
-    () => ajFwd[g.key],
+    () => ({ ...ajFwd[g.key], grado: Math.min(ajFwd[g.key].grado, gradoTope(g.key)) }),
   )])), [tramos, ajFwd, grupos])
 
   /**

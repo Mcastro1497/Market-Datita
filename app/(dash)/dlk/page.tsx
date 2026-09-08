@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { DlkDetailsFilters } from "@/components/dlk-details-filters"
 import { DlkDetailsTable } from "@/components/dlk-details-table"
+import { CurvaForward } from "@/components/curva-forward"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
 import type { DlkWithDetails } from "@/lib/types"
@@ -253,6 +254,13 @@ export default function DlkDashboard() {
 
         {data && <DlkDetailsFilters legislaciones={data.legislaciones} jurisdicciones={data.jurisdicciones} emisores={data.emisores} onFiltersChange={handleDetailsFiltersChange} />}
         <DlkDetailsTable flows={filteredDetailsData} fxOficial={data?.fxOficial ?? null} />
+        {data && (
+          <CurvaForward
+            flows={data.flowsWithDetails}
+            titulo="Dólar linked"
+            grupos={[{ key: "dlk", nombre: "Dólar linked", incluye: () => true }]}
+          />
+        )}
       </div>
     </div>
   )

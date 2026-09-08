@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react"
 import { SoberanosArsDetailsFilters } from "@/components/soberanos-ars-details-filters"
 import { SoberanosArsDetailsTable } from "@/components/soberanos-ars-details-table"
+import { CurvaForward } from "@/components/curva-forward"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { createClient } from "@/lib/supabase/client"
@@ -192,10 +193,20 @@ export default function SoberanosArsDashboard() {
             <TabsContent value="CER" className="space-y-6">
               <SoberanosArsDetailsFilters monedas={data.monedas} emisores={data.emisores} onFiltersChange={handleDetailsFiltersChange} />
               <SoberanosArsDetailsTable flows={filteredDetailsData} activeTab={activeTab} />
+              <CurvaForward
+                flows={data.flowsWithDetails}
+                titulo="Soberanos CER · TIR real"
+                grupos={[{ key: "cer", nombre: "CER", incluye: (f) => f?.details?.instrument_type === "CER" }]}
+              />
             </TabsContent>
             <TabsContent value="FIJA" className="space-y-6">
               <SoberanosArsDetailsFilters monedas={data.monedas} emisores={data.emisores} onFiltersChange={handleDetailsFiltersChange} />
               <SoberanosArsDetailsTable flows={filteredDetailsData} activeTab={activeTab} />
+              <CurvaForward
+                flows={data.flowsWithDetails}
+                titulo="Soberanos tasa fija · TIR nominal"
+                grupos={[{ key: "fija", nombre: "FIJA", incluye: (f) => f?.details?.instrument_type === "FIJA" }]}
+              />
             </TabsContent>
             <TabsContent value="TAMAR" className="space-y-6">
               <SoberanosArsDetailsFilters monedas={data.monedas} emisores={data.emisores} onFiltersChange={handleDetailsFiltersChange} />
