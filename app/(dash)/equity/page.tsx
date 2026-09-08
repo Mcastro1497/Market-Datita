@@ -11,6 +11,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"
 import { LineChart, Search, ArrowUpDown, Plus, Trash2, X, Loader2 } from "lucide-react"
 
+import { PANEL_LIDER, REGIONES_CEDEAR, SECTORES_CEDEAR } from "@/lib/paneles-default"
+
 const STORAGE = "lb-equity-paneles-v1"
 
 type Eq = {
@@ -98,10 +100,14 @@ export default function EquityPage() {
           <Tabs defaultValue="mercado">
             <TabsList>
               <TabsTrigger value="mercado">Mercado ({rows.length})</TabsTrigger>
+              <TabsTrigger value="default">Paneles</TabsTrigger>
               <TabsTrigger value="paneles">Mis paneles</TabsTrigger>
             </TabsList>
             <TabsContent value="mercado">
               <MarketTable rows={rows} nAcc={acciones.length} nCed={cedears.length} />
+            </TabsContent>
+            <TabsContent value="default">
+              <PanelesDefault rows={rows} />
             </TabsContent>
             <TabsContent value="paneles">
               <PanelsView all={rows} byTicker={byTicker} panels={panels} setPanels={setPanels} />
@@ -109,6 +115,130 @@ export default function EquityPage() {
           </Tabs>
         )}
       </div>
+    </div>
+  )
+}
+
+// ── Paneles de fábrica ──
+/**
+ * Los paneles armados: líder y general para acciones, sector y región para
+ * CEDEARs. La clasificación vive en lib/paneles-default y hay que mantenerla a
+ * mano — no existe en ninguna tabla, ECO sólo manda ticker y código CFI.
+ *
+ * Lo que no está clasificado cae en "Otros" en vez de desaparecer: si ese grupo
+ * crece es que entraron CEDEARs nuevos y hay que sumarlos al mapa.
+ */
+function PanelesDefault({ rows }: { rows: Eq[] }) {
+  const grupos = useMemo(() => {
+    const acc = rows.filter((r) => r.tipo === "ACCION").map((r) => r.ticker)
+    const ced = rows.filter((r) => r.tipo === "CEDEAR").map((r) => r.ticker)
+    const lider = PANEL_LIDER.filter((t) => acc.includes(t))
+    const otros = (mapa: Record<string, string[]>) => {
+      const conocidos = new Set(Object.values(mapa).flat())
+      return ced.filter((t) => !conocidos.has(t))
+    }
+    const armar = (mapa: Record<string, string[]>, etiquetaOtros: string) => {
+      const out = Object.entries(mapa)
+        .map(([nombre, tickers]) => ({ nombre, tickers: tickers.filter((t) => ced.includes(t)) }))
+        .filter((g) => g.tickers.length > 0)
+      const resto = otros(mapa)
+      if (resto.length) out.push({ nombre: etiquetaOtros, tickers: resto })
+      return out
+    }
+    return [
+      { seccion: "Acciones argentinas", paneles: [
+        { nombre: "Panel líder", tickers: [...lider] },
+        { nombre: "Panel general", tickers: acc.filter((t) => !lider.includes(t as any)) },
+      ] },
+      { seccion: "CEDEARs por sector", paneles: armar(SECTORES_CEDEAR, "Otros (sin clasificar)") },
+      { seccion: "CEDEARs por región", paneles: armar(REGIONES_CEDEAR, "Estados Unidos") },
+    ]
+  }, [rows])
+
+  const [sel, setSel] = useState("Panel líder")
+  const activo = grupos.flatMap((g) => g.paneles).find((p) => p.nombre === sel) ?? grupos[0].paneles[0]
+  const byTicker = useMemo(() => new Map(rows.map((r) => [r.ticker, r])), [rows])
+  const filas = activo.tickers.map((t) => byTicker.get(t)).filter(Boolean) as Eq[]
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg">Paneles</CardTitle>
+          <CardDescription>
+            Armados de fábrica. La clasificación de CEDEARs se mantiene a mano: lo que
+            no esté cargado aparece en &ldquo;Otros&rdquo;.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {grupos.map((g) => (
+            <div key={g.seccion} className="space-y-1.5">
+              <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                {g.seccion}
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {g.paneles.map((p) => (
+                  <button
+                    key={p.nombre}
+                    onClick={() => setSel(p.nombre)}
+                    className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                      activo.nombre === p.nombre
+                        ? "border-primary/30 bg-primary/10 text-primary"
+                        : "text-muted-foreground hover:bg-muted"
+                    }`}
+                  >
+                    {p.nombre} ({p.tickers.length})
+                  </button>
+                ))}
+              </div>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-3">
+          <CardTitle className="text-base">{activo.nombre}</CardTitle>
+          <CardDescription>{filas.length} instrumentos con precio</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b text-xs uppercase tracking-wide text-muted-foreground">
+                  <th className="py-2 text-left font-medium">Ticker</th>
+                  <th className="py-2 text-right font-medium">Último</th>
+                  <th className="py-2 text-right font-medium">Cierre ant.</th>
+                  <th className="py-2 text-right font-medium">Var. diaria</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filas.map((r) => (
+                  <tr key={r.ticker} className="border-b last:border-0">
+                    <td className="py-2 font-medium">{r.ticker}</td>
+                    <td className="py-2 text-right tabular-nums">
+                      {r.last?.toLocaleString("es-AR", { maximumFractionDigits: 2 }) ?? "—"}
+                    </td>
+                    <td className="py-2 text-right tabular-nums text-muted-foreground">
+                      {r.closing_price?.toLocaleString("es-AR", { maximumFractionDigits: 2 }) ?? "—"}
+                    </td>
+                    <td className={`py-2 text-right tabular-nums ${
+                      r.var_diaria == null ? "" : r.var_diaria >= 0 ? "text-success" : "text-destructive"
+                    }`}>
+                      {r.var_diaria == null ? "—" : `${(r.var_diaria * 100).toFixed(2)}%`}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {!filas.length && (
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                Ningún instrumento de este panel operó hoy.
+              </p>
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }
