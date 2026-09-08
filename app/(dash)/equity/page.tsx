@@ -121,63 +121,119 @@ export default function EquityPage() {
 
 // ── Paneles de fábrica ──
 /**
- * Los paneles armados: líder y general para acciones, sector y región para
- * CEDEARs. La clasificación vive en lib/paneles-default y hay que mantenerla a
- * mano — no existe en ninguna tabla, ECO sólo manda ticker y código CFI.
+ * Los paneles armados. La clasificación de CEDEARs vive en lib/paneles-default y
+ * hay que mantenerla a mano: no existe en ninguna tabla, ECO sólo manda ticker y
+ * código CFI.
  *
- * Lo que no está clasificado cae en "Otros" en vez de desaparecer: si ese grupo
- * crece es que entraron CEDEARs nuevos y hay que sumarlos al mapa.
+ * Acciones y CEDEARs van en bloques separados, cada uno con su propia selección:
+ * juntos, elegir un sector de CEDEARs te tapaba el panel líder que estabas
+ * mirando, y son dos universos que no se comparan entre sí.
  */
+type PanelDef = { nombre: string; tickers: string[] }
+type SeccionDef = { seccion: string; paneles: PanelDef[] }
+type OrdenKey = "ticker" | "last" | "var_diaria"
+
 function PanelesDefault({ rows }: { rows: Eq[] }) {
-  const grupos = useMemo(() => {
+  const { acciones, cedears } = useMemo(() => {
     const acc = rows.filter((r) => r.tipo === "ACCION").map((r) => r.ticker)
     const ced = rows.filter((r) => r.tipo === "CEDEAR").map((r) => r.ticker)
     const lider = PANEL_LIDER.filter((t) => acc.includes(t))
-    const otros = (mapa: Record<string, string[]>) => {
-      const conocidos = new Set(Object.values(mapa).flat())
-      return ced.filter((t) => !conocidos.has(t))
-    }
-    const armar = (mapa: Record<string, string[]>, etiquetaOtros: string) => {
+    const armar = (mapa: Record<string, string[]>, etiquetaResto: string): PanelDef[] => {
       const out = Object.entries(mapa)
         .map(([nombre, tickers]) => ({ nombre, tickers: tickers.filter((t) => ced.includes(t)) }))
         .filter((g) => g.tickers.length > 0)
-      const resto = otros(mapa)
-      if (resto.length) out.push({ nombre: etiquetaOtros, tickers: resto })
+      const conocidos = new Set(Object.values(mapa).flat())
+      const resto = ced.filter((t) => !conocidos.has(t))
+      if (resto.length) out.push({ nombre: etiquetaResto, tickers: resto })
       return out
     }
-    return [
-      { seccion: "Acciones argentinas", paneles: [
+    return {
+      acciones: [{ seccion: "Paneles BYMA", paneles: [
         { nombre: "Panel líder", tickers: [...lider] },
         { nombre: "Panel general", tickers: acc.filter((t) => !lider.includes(t as any)) },
-      ] },
-      { seccion: "CEDEARs por sector", paneles: armar(SECTORES_CEDEAR, "Otros (sin clasificar)") },
-      { seccion: "CEDEARs por región", paneles: armar(REGIONES_CEDEAR, "Estados Unidos") },
-    ]
+      ] }] as SeccionDef[],
+      cedears: [
+        { seccion: "Por sector", paneles: armar(SECTORES_CEDEAR, "Otros (sin clasificar)") },
+        { seccion: "Por región", paneles: armar(REGIONES_CEDEAR, "Estados Unidos") },
+      ] as SeccionDef[],
+    }
   }, [rows])
 
-  const [sel, setSel] = useState("Panel líder")
-  const activo = grupos.flatMap((g) => g.paneles).find((p) => p.nombre === sel) ?? grupos[0].paneles[0]
   const byTicker = useMemo(() => new Map(rows.map((r) => [r.ticker, r])), [rows])
-  const filas = activo.tickers.map((t) => byTicker.get(t)).filter(Boolean) as Eq[]
 
   return (
-    <div className="space-y-4">
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-lg">Paneles</CardTitle>
-          <CardDescription>
-            Armados de fábrica. La clasificación de CEDEARs se mantiene a mano: lo que
-            no esté cargado aparece en &ldquo;Otros&rdquo;.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-3">
-          {grupos.map((g) => (
-            <div key={g.seccion} className="space-y-1.5">
-              <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                {g.seccion}
-              </div>
+    <div className="max-w-2xl space-y-6">
+      <BloqueDePaneles titulo="Acciones argentinas" secciones={acciones} byTicker={byTicker} />
+      <BloqueDePaneles
+        titulo="CEDEARs"
+        descripcion="La clasificación se mantiene a mano: lo que no esté cargado aparece en “Otros”."
+        secciones={cedears}
+        byTicker={byTicker}
+      />
+    </div>
+  )
+}
+
+function BloqueDePaneles({
+  titulo, descripcion, secciones, byTicker,
+}: {
+  titulo: string
+  descripcion?: string
+  secciones: SeccionDef[]
+  byTicker: Map<string, Eq>
+}) {
+  const todos = secciones.flatMap((s) => s.paneles)
+  const [sel, setSel] = useState(todos[0]?.nombre ?? "")
+  const [orden, setOrden] = useState<{ k: OrdenKey; dir: "asc" | "desc" }>({ k: "ticker", dir: "asc" })
+  const activo = todos.find((p) => p.nombre === sel) ?? todos[0]
+
+  const filas = useMemo(() => {
+    if (!activo) return []
+    const arr = activo.tickers.map((t) => byTicker.get(t)).filter(Boolean) as Eq[]
+    const signo = orden.dir === "asc" ? 1 : -1
+    return arr.sort((a, b) => {
+      if (orden.k === "ticker") return signo * a.ticker.localeCompare(b.ticker)
+      const va = a[orden.k], vb = b[orden.k]
+      // Los que no operaron van siempre al final, ordene como ordene.
+      if (va == null) return 1
+      if (vb == null) return -1
+      return signo * (va - vb)
+    })
+  }, [activo, byTicker, orden])
+
+  const ordenar = (k: OrdenKey) =>
+    setOrden((o) => ({ k, dir: o.k === k && o.dir === "asc" ? "desc" : "asc" }))
+
+  const Th = ({ k, children }: { k: OrdenKey; children: React.ReactNode }) => (
+    <th className={k === "ticker" ? "text-left" : "text-right"}>
+      <button
+        onClick={() => ordenar(k)}
+        className={`inline-flex items-center gap-1 py-2 text-xs font-medium uppercase tracking-wide transition hover:text-foreground ${
+          orden.k === k ? "text-foreground" : "text-muted-foreground"
+        }`}
+      >
+        {children}
+        <span className="text-[10px]">{orden.k === k ? (orden.dir === "asc" ? "▲" : "▼") : "↕"}</span>
+      </button>
+    </th>
+  )
+
+  if (!activo) return null
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-lg">{titulo}</CardTitle>
+        {descripcion && <CardDescription>{descripcion}</CardDescription>}
+        <div className="space-y-2 pt-2">
+          {secciones.map((s) => (
+            <div key={s.seccion} className="space-y-1.5">
+              {secciones.length > 1 && (
+                <div className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  {s.seccion}
+                </div>
+              )}
               <div className="flex flex-wrap gap-1.5">
-                {g.paneles.map((p) => (
+                {s.paneles.map((p) => (
                   <button
                     key={p.nombre}
                     onClick={() => setSel(p.nombre)}
@@ -193,53 +249,51 @@ function PanelesDefault({ rows }: { rows: Eq[] }) {
               </div>
             </div>
           ))}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">{activo.nombre}</CardTitle>
-          <CardDescription>{filas.length} instrumentos con precio</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b text-xs uppercase tracking-wide text-muted-foreground">
-                  <th className="py-2 text-left font-medium">Ticker</th>
-                  <th className="py-2 text-right font-medium">Último</th>
-                  <th className="py-2 text-right font-medium">Cierre ant.</th>
-                  <th className="py-2 text-right font-medium">Var. diaria</th>
+        </div>
+      </CardHeader>
+      <CardContent>
+        <div className="mb-1 text-sm text-muted-foreground">
+          {activo.nombre} · {filas.length} con precio
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b">
+                <Th k="ticker">Ticker</Th>
+                <Th k="last">Último</Th>
+                <th className="py-2 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                  Cierre ant.
+                </th>
+                <Th k="var_diaria">Var. diaria</Th>
+              </tr>
+            </thead>
+            <tbody>
+              {filas.map((r) => (
+                <tr key={r.ticker} className="border-b last:border-0">
+                  <td className="py-2 font-medium">{r.ticker}</td>
+                  <td className="py-2 text-right tabular-nums">
+                    {r.last?.toLocaleString("es-AR", { maximumFractionDigits: 2 }) ?? "—"}
+                  </td>
+                  <td className="py-2 text-right tabular-nums text-muted-foreground">
+                    {r.closing_price?.toLocaleString("es-AR", { maximumFractionDigits: 2 }) ?? "—"}
+                  </td>
+                  <td className={`py-2 text-right tabular-nums ${
+                    r.var_diaria == null ? "" : r.var_diaria >= 0 ? "text-success" : "text-destructive"
+                  }`}>
+                    {r.var_diaria == null ? "—" : `${(r.var_diaria * 100).toFixed(2)}%`}
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {filas.map((r) => (
-                  <tr key={r.ticker} className="border-b last:border-0">
-                    <td className="py-2 font-medium">{r.ticker}</td>
-                    <td className="py-2 text-right tabular-nums">
-                      {r.last?.toLocaleString("es-AR", { maximumFractionDigits: 2 }) ?? "—"}
-                    </td>
-                    <td className="py-2 text-right tabular-nums text-muted-foreground">
-                      {r.closing_price?.toLocaleString("es-AR", { maximumFractionDigits: 2 }) ?? "—"}
-                    </td>
-                    <td className={`py-2 text-right tabular-nums ${
-                      r.var_diaria == null ? "" : r.var_diaria >= 0 ? "text-success" : "text-destructive"
-                    }`}>
-                      {r.var_diaria == null ? "—" : `${(r.var_diaria * 100).toFixed(2)}%`}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {!filas.length && (
-              <p className="py-8 text-center text-sm text-muted-foreground">
-                Ningún instrumento de este panel operó hoy.
-              </p>
-            )}
-          </div>
-        </CardContent>
-      </Card>
-    </div>
+              ))}
+            </tbody>
+          </table>
+          {!filas.length && (
+            <p className="py-8 text-center text-sm text-muted-foreground">
+              Ningún instrumento de este panel operó hoy.
+            </p>
+          )}
+        </div>
+      </CardContent>
+    </Card>
   )
 }
 
