@@ -162,7 +162,7 @@ function PanelesDefault({ rows }: { rows: Eq[] }) {
   const byTicker = useMemo(() => new Map(rows.map((r) => [r.ticker, r])), [rows])
 
   return (
-    <div className="max-w-2xl space-y-6">
+    <div className="grid gap-6 lg:grid-cols-2 lg:items-start">
       <BloqueDePaneles titulo="Acciones argentinas" secciones={acciones} byTicker={byTicker} />
       <BloqueDePaneles
         titulo="CEDEARs"
@@ -262,7 +262,7 @@ function BloqueDePaneles({
                 <Th k="ticker">Ticker</Th>
                 <Th k="last">Último</Th>
                 <th className="py-2 text-right text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  Cierre ant.
+                  Cierre
                 </th>
                 <Th k="var_diaria">Var. diaria</Th>
               </tr>
