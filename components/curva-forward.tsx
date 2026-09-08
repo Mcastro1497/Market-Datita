@@ -165,29 +165,44 @@ function marcasX(min: number, max: number): number[] {
 }
 
 /**
- * Dónde va la etiqueta de cada punto. AL30 y AO28 caen a 0,036 años uno del otro
- * y se pisan. Alternar arriba/abajo a ciegas no alcanza: si el de abajo lleva la
- * etiqueta arriba y el de arriba la lleva abajo, las dos terminan en el medio,
- * justo lo que pasaba. Dentro de cada racimo de durations cercanas se ordena por
- * TIR: el más alto la lleva arriba y el más bajo, abajo, que es la única
- * asignación que las separa.
+ * Dónde va la etiqueta de cada punto, o null si no entra en ningún lado.
+ *
+ * Dos etiquetas se pisan según cuántos PÍXELES las separan, no cuántos años ni
+ * cuántos puntos de TIR, así que la cuenta se hace en el espacio del gráfico:
+ * se normalizan las dos escalas y se proyectan al alto y ancho reales.
+ *
+ * Es colocación greedy de izquierda a derecha probando ranuras alternadas, y no
+ * un agrupamiento previo, porque agrupar por cercanía encadena de forma
+ * transitiva: en la curva CER cada bono está cerca del siguiente, y con eso
+ * medio universo caía en un mismo racimo y perdía la etiqueta.
  */
-function desplazar(pts: { dur: number; __y: number }[]): number[] {
-  const dys = new Array(pts.length).fill(-10)
-  let i = 0
-  while (i < pts.length) {
-    let j = i
-    while (j + 1 < pts.length && pts[j + 1].dur - pts[j].dur < 0.12) j++
-    if (j > i) {
-      const racimo = []
-      for (let k = i; k <= j; k++) racimo.push({ k, y: pts[k].__y })
-      racimo.sort((a, b) => b.y - a.y)          // de mayor a menor TIR
-      racimo.forEach((r, orden) => {
-        dys[r.k] = orden === 0 ? -13 : orden === racimo.length - 1 ? 20 : -13 - orden * 13
-      })
-    }
-    i = j + 1
-  }
+const RANURAS = [-13, 20, -27, 34, -41]
+const ANCHO_ETIQUETA = 44
+const ALTO_ETIQUETA = 13
+
+function desplazar(
+  pts: { dur: number; __y: number }[],
+  anchoPx = 460,
+  altoPx = 320,
+): (number | null)[] {
+  const dys: (number | null)[] = new Array(pts.length).fill(RANURAS[0])
+  if (pts.length < 2) return dys
+  const xs = pts.map((p) => p.dur), ys = pts.map((p) => p.__y)
+  const x0 = Math.min(...xs), x1 = Math.max(...xs)
+  const y0 = Math.min(...ys), y1 = Math.max(...ys)
+  const px = (v: number) => ((v - x0) / (x1 - x0 || 1)) * anchoPx
+  const py = (v: number) => (1 - (v - y0) / (y1 - y0 || 1)) * altoPx
+
+  const puestas: { x: number; y: number }[] = []
+  pts.forEach((p, i) => {
+    const cx = px(p.dur), cy = py(p.__y)
+    const libre = RANURAS.find((dy) =>
+      !puestas.some((q) =>
+        Math.abs(q.x - cx) < ANCHO_ETIQUETA && Math.abs(q.y - (cy + dy)) < ALTO_ETIQUETA))
+    if (libre === undefined) { dys[i] = null; return }
+    dys[i] = libre
+    puestas.push({ x: cx, y: cy + libre })
+  })
   return dys
 }
 
@@ -197,13 +212,15 @@ function Punto(props: any) {
   return (
     <g>
       <circle cx={cx} cy={cy} r={4.5} fill={color} stroke="var(--background)" strokeWidth={2} />
-      <text
-        x={cx} y={cy + (payload.dy ?? -10)} textAnchor="middle"
-        fontSize={10} fill="var(--muted-foreground)"
-        stroke="var(--background)" strokeWidth={3} paintOrder="stroke" strokeLinejoin="round"
-      >
-        {payload.symbol}
-      </text>
+      {payload.dy != null && (
+        <text
+          x={cx} y={cy + payload.dy} textAnchor="middle"
+          fontSize={10} fill="var(--muted-foreground)"
+          stroke="var(--background)" strokeWidth={3} paintOrder="stroke" strokeLinejoin="round"
+        >
+          {payload.symbol}
+        </text>
+      )}
     </g>
   )
 }
@@ -370,6 +387,7 @@ export function CurvaForward({ flows, grupos, titulo, spread }: Props) {
     cuales: GrupoCurva[],
     porGrupo: Record<string, { dur: number; symbol: string; y: number; meta: any }[]>,
     aj: (k: string) => Ajuste,
+    anchoPx = 460,
   ) {
     const filas: any[] = []
     for (const g of cuales) {
@@ -378,7 +396,7 @@ export function CurvaForward({ flows, grupos, titulo, spread }: Props) {
       }
     }
     filas.sort((a, b) => a.dur - b.dur)
-    const dys = desplazar(filas)
+    const dys = desplazar(filas, anchoPx)
     filas.forEach((f, i) => { f.dy = dys[i] })
 
     let hayFit = false
@@ -403,12 +421,14 @@ export function CurvaForward({ flows, grupos, titulo, spread }: Props) {
     Object.fromEntries(grupos.map((g) => [g.key,
       bonos[g.key].map((b) => ({ dur: b.dur, symbol: b.symbol, y: b.ytm, meta: b }))])),
     (k) => ({ ...ajSpot, grado: Math.min(ajSpot.grado, gradoTope(k)) }),
+    980,
   ), [bonos, ajSpot, grupos])
 
   const fwdData = useMemo(() => Object.fromEntries(grupos.map((g) => [g.key, armar(
     [g],
     { [g.key]: tramos[g.key].map((t) => ({ dur: t.bono.dur, symbol: t.bono.symbol, y: t.fwd, meta: t })) },
     () => ({ ...ajFwd[g.key], grado: Math.min(ajFwd[g.key].grado, gradoTope(g.key)) }),
+    grupos.length > 1 ? 460 : 980,
   )])), [tramos, ajFwd, grupos])
 
   /**
@@ -468,9 +488,8 @@ export function CurvaForward({ flows, grupos, titulo, spread }: Props) {
           {shortsVisibles && cuales.map((g) => {
             const s = shortDe(g.key)
             return s ? (
-              <ReferenceLine key={`r-${g.key}`} x={s.dur} stroke={colores[g.key]} strokeDasharray="3 4"
-                strokeOpacity={0.6}
-                label={{ value: `short ${s.symbol}`, position: "top", fontSize: 10, fill: colores[g.key] }} />
+              <ReferenceLine key={`r-${g.key}`} x={s.dur} stroke={colores[g.key]}
+                strokeDasharray="3 4" strokeOpacity={0.6} />
             ) : null
           })}
         </LineChart>
