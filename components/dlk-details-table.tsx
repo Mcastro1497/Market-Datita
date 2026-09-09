@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Separator } from "@/components/ui/separator"
 import type { DlkWithDetails } from "@/lib/types"
 import { ArrowUpDown, Search, Link2 } from "lucide-react"
+import { montoArs, montoUsd } from "@/lib/formato"
 
 interface DlkDetailsTableProps {
   flows: DlkWithDetails[]
@@ -105,15 +106,9 @@ export function DlkDetailsTable({ flows, fxOficial }: DlkDetailsTableProps) {
     }
   }
 
-  // Formato ARS: pesos argentinos
-  const formatArs = (value: number | null) => {
-    if (value === null || value === undefined) return ""
-    return new Intl.NumberFormat("es-AR", {
-      style: "currency",
-      currency: "ARS",
-      minimumFractionDigits: 2,
-    }).format(value)
-  }
+  // Formato ARS: pesos argentinos. Los decimales dependen de la magnitud, ver
+  // lib/formato — un precio de 148.000 no lleva centavos, el FX de 1.514,50 sí.
+  const formatArs = (value: number | null) => (value == null ? "" : montoArs(value))
 
   // Formato USD equivalente (para mostrar precio en USD calculado)
   const formatUsd = (value: number | null) => {
@@ -356,10 +351,8 @@ export function DlkDetailsTable({ flows, fxOficial }: DlkDetailsTableProps) {
 }
 
 // ── Modal de detalle DLK ──
-const dlkArs = (v: number | null | undefined) =>
-  v == null ? "—" : new Intl.NumberFormat("es-AR", { style: "currency", currency: "ARS", minimumFractionDigits: 2 }).format(v)
-const dlkUsd = (v: number | null | undefined) =>
-  v == null ? "—" : new Intl.NumberFormat("es-AR", { style: "currency", currency: "USD", minimumFractionDigits: 2 }).format(v)
+const dlkArs = montoArs
+const dlkUsd = montoUsd
 const dlkAmount = (v: number | null | undefined) =>
   v == null ? "—" : new Intl.NumberFormat("es-AR", { maximumFractionDigits: 0 }).format(v)
 const dlkPct = (v: number | null | undefined) => (v == null ? "—" : `${(v * 100).toFixed(2)}%`)
