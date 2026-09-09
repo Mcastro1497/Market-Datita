@@ -49,11 +49,12 @@ const enM = (v: number) => `${nf2.format(v / 1e6)} M`
 const COLOR_PRECIO = "var(--chart-1)"
 const COLOR_VWAP = "var(--success)"
 const COLOR_VOL = "#c2410c"
-// Las chicas van en el mismo naranja pero claro, no en gris. Sobre fondo blanco
-// una barra de cuatro píxeles en gris al 55% no se ve: con el outlier de 45 M
-// fijando la escala, la mediana de 1 M mide eso y desaparecía. El naranja claro
-// mantiene la distinción de dos tonos y se lee.
-const COLOR_BAJO = "#c2410c"
+// Los dos tonos del volumen van SÓLIDOS, sin opacidad. Con el outlier de 45 M
+// fijando la escala, la barra de la mediana mide cuatro píxeles, y a ese tamaño
+// cualquier transparencia sobre fondo blanco desaparece: da igual el tono, lo
+// que mata es el alfa. La referencia se ve porque es fondo negro con amarillo.
+const COLOR_ALTO = "#9a3412"   // naranja oscuro: domina
+const COLOR_BAJO = "#ea580c"   // naranja medio: se lee igual a cuatro píxeles
 
 export function FxRuedaChart() {
   const [precios, setPrecios] = useState<Punto[]>([])
@@ -222,16 +223,15 @@ export function FxRuedaChart() {
         </div>
         <CardDescription className="flex flex-wrap items-center gap-x-4 gap-y-1">
           <span className="inline-flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-[2px]" style={{ background: COLOR_VOL }} />
+            <span className="h-2.5 w-2.5 rounded-[2px]" style={{ background: COLOR_ALTO }} />
             vol alto (≥ p75 = {enM(d.umbral)})
           </span>
           <span className="inline-flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-[2px]"
-              style={{ background: COLOR_BAJO, opacity: 0.4 }} />
+            <span className="h-2.5 w-2.5 rounded-[2px]" style={{ background: COLOR_BAJO }} />
             vol bajo
           </span>
           <span className="inline-flex items-center gap-1.5">
-            <span className="h-px w-4" style={{ background: COLOR_VOL }} />umbral
+            <span className="h-px w-4" style={{ background: COLOR_ALTO }} />umbral
           </span>
           <span className="inline-flex items-center gap-1.5">
             <span className="h-px w-4 bg-muted-foreground" />prom {enM(d.promedio)}
@@ -247,8 +247,8 @@ export function FxRuedaChart() {
               tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} stroke="var(--border)"
               tickCount={6} />
             <Tooltip content={<Tip />} cursor={{ fill: "var(--muted)", opacity: 0.4 }} />
-            <ReferenceLine y={d.umbral} stroke={COLOR_VOL} strokeDasharray="4 3" strokeOpacity={0.8}
-              label={{ value: "p75", position: "insideTopRight", fontSize: 9, fill: COLOR_VOL }} />
+            <ReferenceLine y={d.umbral} stroke={COLOR_ALTO} strokeDasharray="4 3"
+              label={{ value: "p75", position: "insideTopRight", fontSize: 9, fill: COLOR_ALTO }} />
             <ReferenceLine y={d.promedio} stroke="var(--muted-foreground)" strokeDasharray="2 3"
               strokeOpacity={0.7}
               label={{ value: `prom ${enM(d.promedio)}`, position: "insideBottomRight",
@@ -256,8 +256,7 @@ export function FxRuedaChart() {
             <Bar dataKey="vol" isAnimationActive={false} barSize={5} minPointSize={2}>
               {d.serie.map((o, i) => (
                 <Cell key={i}
-                  fill={o.vol >= d.umbral ? COLOR_VOL : COLOR_BAJO}
-                  fillOpacity={o.vol >= d.umbral ? 1 : 0.4} />
+                  fill={o.vol >= d.umbral ? COLOR_ALTO : COLOR_BAJO} />
               ))}
             </Bar>
           </BarChart>
