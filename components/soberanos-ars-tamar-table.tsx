@@ -231,7 +231,7 @@ export function SoberanosArsTamarTable({ flows, activeTab }: SoberanosArsTamarTa
               </TableHead>
               <TableHead className="text-center">
                 <Button variant="ghost" onClick={() => handleSort("lastPrice.duration_y")} className="h-auto p-0 font-semibold">
-                  Duración <ArrowUpDown className="ml-2 h-4 w-4" />
+                  Dur. Macaulay <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
               </TableHead>
               <TableHead className="text-center">

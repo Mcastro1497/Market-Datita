@@ -47,6 +47,22 @@ const formatPercentage = (value: number | null | undefined) => {
   if (value === null || value === undefined) return "—"
   return `${(value * 100).toFixed(2)}%`
 }
+/**
+ * Días corridos hasta el vencimiento. Van al lado de la duración porque miden
+ * cosas distintas y se confunden: la duración es el plazo promedio ponderado
+ * por valor presente —un bono con cupones la tiene bastante menor que su plazo
+ * — y esto es el plazo pelado hasta el último pago.
+ */
+const diasAlVto = (v: string | null | undefined) => {
+  if (!v) return "—"
+  const m = String(v).match(/^(\d{4})-(\d{2})-(\d{2})/)
+  if (!m) return "—"
+  const vto = Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]))
+  const hoy = new Date()
+  const d = Math.round((vto - Date.UTC(hoy.getFullYear(), hoy.getMonth(), hoy.getDate())) / 86400000)
+  return d < 0 ? "vencido" : String(d)
+}
+
 const formatDuration = (value: number | null | undefined) => {
   if (value === null || value === undefined) return "—"
   return `${value.toFixed(2)} años`
@@ -141,8 +157,9 @@ export function SoberanosArsDetailsTable({ flows, activeTab }: SoberanosArsDetai
               <SortHead field="lastPrice.change" label="Var %" />
               {isFija && <SortHead field="lastPrice.tna" label="TNA" />}
               <SortHead field="lastPrice.ytm" label="TIR" />
-              <SortHead field="lastPrice.duration_y" label="Duración" />
+              <SortHead field="lastPrice.duration_y" label="Dur. Macaulay" />
               <SortHead field="details.vencimiento" label="Vto." />
+              <SortHead field="details.vencimiento" label="Días" />
             </TableRow>
           </TableHeader>
           <TableBody>
@@ -174,6 +191,9 @@ export function SoberanosArsDetailsTable({ flows, activeTab }: SoberanosArsDetai
                   <TableCell className="text-center tabular-nums">{formatPercentage(flow.lastPrice?.ytm)}</TableCell>
                   <TableCell className="text-center tabular-nums">{formatDuration(flow.lastPrice?.duration_y)}</TableCell>
                   <TableCell className="text-center">{formatDate(flow.details?.vencimiento)}</TableCell>
+                  <TableCell className="text-center tabular-nums text-muted-foreground">
+                    {diasAlVto(flow.details?.vencimiento)}
+                  </TableCell>
                 </TableRow>
               )
             })}
@@ -217,7 +237,7 @@ function BondDetailDialog({ flow, onClose }: { flow: SoberanoWithDetails | null;
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <Metric label="Precio ARS" value={formatArs(flow.lastPrice?.last)} />
               <Metric label="TIR" value={formatPercentage(flow.lastPrice?.ytm)} />
-              <Metric label="Duración" value={formatDuration(flow.lastPrice?.duration_y)} />
+              <Metric label="Dur. Macaulay" value={formatDuration(flow.lastPrice?.duration_y)} />
               <Metric label="Var %" value={formatPercentage(flow.lastPrice?.change)} />
             </div>
 

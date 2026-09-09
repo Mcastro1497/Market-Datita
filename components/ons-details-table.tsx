@@ -163,7 +163,7 @@ export function ONDetailsTable({ flows }: ONDetailsTableProps) {
         <SortHead field="lastPrice.last" label="Precio USD" />
         <SortHead field="lastPrice.change" label="Var %" />
         <SortHead field="lastPrice.ytm" label="YTM" />
-        <SortHead field="lastPrice.duration_y" label="Duración" />
+        <SortHead field="lastPrice.duration_y" label="Dur. Macaulay" />
         <SortHead field="details.vencimiento" label="Vto." />
         <SortHead field="details.legislacion" label="Legislación" />
         <SortHead field="details.jurisdiccion_pago" label="Jurisdicción Pago" />
@@ -318,7 +318,7 @@ function ONDetailDialog({ flow, onClose }: { flow: ONWithDetails | null; onClose
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <Metric label="Precio USD" value={formatCurrency(flow.lastPrice?.last)} />
               <Metric label="YTM" value={formatPercentage(flow.lastPrice?.ytm)} />
-              <Metric label="Duración" value={formatDuration(flow.lastPrice?.duration_y)} />
+              <Metric label="Dur. Macaulay" value={formatDuration(flow.lastPrice?.duration_y)} />
               <Metric label="Var %" value={formatPercentage(flow.lastPrice?.change)} />
             </div>
 

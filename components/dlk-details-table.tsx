@@ -250,7 +250,7 @@ export function DlkDetailsTable({ flows, fxOficial }: DlkDetailsTableProps) {
                   onClick={() => handleSort("lastPrice.duration_y")}
                   className="h-auto p-0 font-semibold"
                 >
-                  Duración <ArrowUpDown className="ml-2 h-4 w-4" />
+                  Dur. Macaulay <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
               </TableHead>
               <TableHead className="text-center">
@@ -411,7 +411,7 @@ function DlkDetailDialog({
               <DlkMetric label="Precio ARS" value={dlkArs(flow.lastPrice?.price_ars ?? flow.lastPrice?.last)} />
               <DlkMetric label="Precio USD" value={dlkUsd(flow.lastPrice?.price_usd)} />
               <DlkMetric label="TIR (USD)" value={dlkPct(flow.lastPrice?.ytm)} />
-              <DlkMetric label="Duración" value={dlkDur(flow.lastPrice?.duration_y)} />
+              <DlkMetric label="Dur. Macaulay" value={dlkDur(flow.lastPrice?.duration_y)} />
             </div>
 
             <Separator />

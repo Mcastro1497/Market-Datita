@@ -328,7 +328,7 @@ function TickerDetailDialog({ row, onClose }: { row: Row | null; onClose: () => 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
               <Metric label="Precio" value={esArs ? fmtArs(precio) : fmtUsd(precio)} />
               <Metric label="TIR" value={fmtPct(p?.ytm)} />
-              <Metric label="Duración" value={fmtDur(p?.duration_y)} />
+              <Metric label="Dur. Macaulay" value={fmtDur(p?.duration_y)} />
               <Metric label="Var %" value={fmtPct(p?.change_pct)} />
             </div>
 

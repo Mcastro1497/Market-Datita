@@ -269,7 +269,7 @@ export function SoberanosArsCerTable({ flows, activeTab }: SoberanosArsCerTableP
                   onClick={() => handleSort("lastPrice.duration_y")}
                   className="h-auto p-0 font-semibold"
                 >
-                  Duración <ArrowUpDown className="ml-2 h-4 w-4" />
+                  Dur. Macaulay <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
               </TableHead>
               <TableHead className="text-center">
