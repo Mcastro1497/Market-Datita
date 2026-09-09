@@ -70,8 +70,8 @@ type Props = {
   flows: any[]
   grupos: GrupoCurva[]
   titulo: string
-  /** Tabla y columnas de spread entre los dos primeros grupos, por igual vencimiento. */
-  spread?: { titulo: string; descripcion: string }
+  /** Columnas de spread entre los dos primeros grupos, por bonos de igual vencimiento. */
+  spread?: { titulo: string; descripcion?: string }
 }
 
 const pct = (v: number | null | undefined, d = 2) =>
@@ -604,7 +604,7 @@ export function CurvaForward({ flows, grupos, titulo, spread }: Props) {
         <Card>
           <CardHeader>
             <CardTitle className="text-lg">{spread.titulo}</CardTitle>
-            <CardDescription>{spread.descripcion}</CardDescription>
+            {spread.descripcion && <CardDescription>{spread.descripcion}</CardDescription>}
           </CardHeader>
           <CardContent>
             <div className="max-w-2xl">

@@ -172,13 +172,7 @@ export default function SoberanosDashboard() {
               { key: "arg", nombre: "Ley Argentina",  incluye: (f) => f?.details?.legislacion === "Argentina" },
               { key: "ny",  nombre: "Ley Nueva York", incluye: (f) => f?.details?.legislacion === "Nueva York" },
             ]}
-            spread={{
-              titulo: "Spread de legislación",
-              descripcion:
-                "Cociente de precios en dólares entre los bonos de igual vencimiento: GD30D / AL30D − 1. " +
-                "Mismo flujo, mismo emisor, misma fecha, así que lo que queda es lo que el mercado paga " +
-                "por la jurisdicción.",
-            }}
+            spread={{ titulo: "Spread de legislación" }}
           />
         )}
       </div>
