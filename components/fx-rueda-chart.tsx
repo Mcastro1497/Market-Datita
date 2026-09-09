@@ -109,9 +109,24 @@ export function FxRuedaChart() {
     const promedio = vols.length ? vols.reduce((a, b) => a + b, 0) / vols.length : 0
     const altos = serie.filter((o) => o.vol >= p75 && o.vol > 0)
 
+    // Barras de 5 minutos y no una por operación. Con 157 barras contra una
+    // escala que la operación de 45,5 M lleva hasta 47, la mediana mide cuatro
+    // píxeles de alto y dos de ancho: no hay color que salve eso. Sumadas por
+    // tramo, los montos quedan del mismo orden entre sí y las barras anchas.
+    const TRAMO = 5 * 60
+    const bolsas = new Map<number, { t: number; vol: number; ops: number; pico: number }>()
+    for (const o of ops) {
+      const k = Math.floor(o.t / TRAMO) * TRAMO
+      const b = bolsas.get(k) ?? { t: k, vol: 0, ops: 0, pico: 0 }
+      b.vol += o.vol; b.ops += 1; b.pico = Math.max(b.pico, o.vol)
+      bolsas.set(k, b)
+    }
+    const barras = [...bolsas.values()].sort((a, b) => a.t - b.t)
+
     return {
-      serie, altos, umbral: p75, promedio,
+      serie, altos, barras, umbral: p75, promedio,
       volMax: vols.length ? vols[vols.length - 1] : 0,
+      promTramo: barras.length ? barras.reduce((s, b) => s + b.vol, 0) / barras.length : 0,
       total: vols.reduce((a, b) => a + b, 0),
       precio: serie[serie.length - 1].tc,
       vwap: serie[serie.length - 1].vwap,
@@ -154,7 +169,9 @@ export function FxRuedaChart() {
         )}
         {p.vol > 0 && (
           <div className="tabular-nums text-muted-foreground">
-            Operado {enM(p.vol)}{p.vol >= d.umbral ? " · alto" : ""}
+            Operado {enM(p.vol)}
+            {p.ops != null && <> en {p.ops} {p.ops === 1 ? "operación" : "operaciones"}</>}
+            {p.pico != null && p.pico >= d.umbral && <> · mayor {enM(p.pico)}</>}
           </div>
         )}
       </div>
@@ -222,41 +239,33 @@ export function FxRuedaChart() {
           </div>
         </div>
         <CardDescription className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          <span>Sumado en tramos de 5 minutos.</span>
           <span className="inline-flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded-[2px]" style={{ background: COLOR_ALTO }} />
-            vol alto (≥ p75 = {enM(d.umbral)})
+            con operación alta (≥ {enM(d.umbral)})
           </span>
           <span className="inline-flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded-[2px]" style={{ background: COLOR_BAJO }} />
-            vol bajo
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <span className="h-px w-4" style={{ background: COLOR_ALTO }} />umbral
-          </span>
-          <span className="inline-flex items-center gap-1.5">
-            <span className="h-px w-4 bg-muted-foreground" />prom {enM(d.promedio)}
+            resto
           </span>
         </CardDescription>
       </CardHeader>
       <CardContent>
         <ResponsiveContainer width="100%" height={230}>
-          <BarChart data={d.serie} margin={{ top: 4, right: 16, bottom: 4, left: 0 }}>
+          <BarChart data={d.barras} margin={{ top: 4, right: 16, bottom: 4, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
             <XAxis {...ejeX} />
             <YAxis width={62} tickFormatter={(v: number) => `${nf2.format(v / 1e6)}M`}
               tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} stroke="var(--border)"
-              tickCount={6} />
+              tickCount={5} />
             <Tooltip content={<Tip />} cursor={{ fill: "var(--muted)", opacity: 0.4 }} />
-            <ReferenceLine y={d.umbral} stroke={COLOR_ALTO} strokeDasharray="4 3"
-              label={{ value: "p75", position: "insideTopRight", fontSize: 9, fill: COLOR_ALTO }} />
-            <ReferenceLine y={d.promedio} stroke="var(--muted-foreground)" strokeDasharray="2 3"
-              strokeOpacity={0.7}
-              label={{ value: `prom ${enM(d.promedio)}`, position: "insideBottomRight",
+            <ReferenceLine y={d.promTramo} stroke="var(--muted-foreground)" strokeDasharray="4 3"
+              strokeOpacity={0.8}
+              label={{ value: `prom ${enM(d.promTramo)}`, position: "insideTopRight",
                        fontSize: 9, fill: "var(--muted-foreground)" }} />
-            <Bar dataKey="vol" isAnimationActive={false} barSize={5} minPointSize={2}>
-              {d.serie.map((o, i) => (
-                <Cell key={i}
-                  fill={o.vol >= d.umbral ? COLOR_ALTO : COLOR_BAJO} />
+            <Bar dataKey="vol" isAnimationActive={false} radius={[2, 2, 0, 0]} minPointSize={2}>
+              {d.barras.map((b, i) => (
+                <Cell key={i} fill={b.pico >= d.umbral ? COLOR_ALTO : COLOR_BAJO} />
               ))}
             </Bar>
           </BarChart>
