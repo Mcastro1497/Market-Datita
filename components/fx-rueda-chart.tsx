@@ -32,7 +32,7 @@
 import { useEffect, useMemo, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
-  Bar, BarChart, CartesianGrid, ComposedChart, Line, ReferenceLine,
+  Bar, BarChart, CartesianGrid, Cell, ComposedChart, Line, ReferenceLine,
   ResponsiveContainer, Scatter, Tooltip, XAxis, YAxis, ZAxis,
 } from "recharts"
 
@@ -49,6 +49,9 @@ const enM = (v: number) => `${nf2.format(v / 1e6)} M`
 const COLOR_PRECIO = "var(--chart-1)"
 const COLOR_VWAP = "var(--success)"
 const COLOR_VOL = "#c2410c"
+// Las operaciones chicas no se apagan del todo: son la textura de la rueda, y
+// en gris se ve cuándo el mercado se queda quieto y cuándo late seguido.
+const COLOR_BAJO = "var(--muted-foreground)"
 
 export function FxRuedaChart() {
   const [precios, setPrecios] = useState<Punto[]>([])
@@ -176,7 +179,7 @@ export function FxRuedaChart() {
           </span>
           <span className="inline-flex items-center gap-1.5">
             <span className="h-2 w-2 rounded-full" style={{ background: COLOR_VOL, opacity: 0.55 }} />
-            Operación alta (≥ p75 = {enM(d.umbral)})
+            Operación alta
           </span>
         </CardDescription>
       </CardHeader>
@@ -201,11 +204,27 @@ export function FxRuedaChart() {
         </ResponsiveContainer>
 
         {/* Volumen por operación, en el mismo eje de tiempo que el precio de arriba. */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pl-[62px] text-[11px] text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-[2px]" style={{ background: COLOR_VOL }} />
+            vol alto (≥ p75 = {enM(d.umbral)})
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-2.5 w-2.5 rounded-[2px]" style={{ background: COLOR_BAJO }} />
+            vol bajo
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-px w-4" style={{ background: COLOR_VOL }} />umbral
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-px w-4 bg-muted-foreground" />prom {enM(d.promedio)}
+          </span>
+        </div>
         <ResponsiveContainer width="100%" height={110}>
           <BarChart data={d.serie} margin={{ top: 4, right: 16, bottom: 4, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
             <XAxis {...ejeX} />
-            <YAxis width={62} tickFormatter={(v: number) => `${Math.round(v / 1e6)}M`}
+            <YAxis width={62} tickFormatter={(v: number) => `${nf2.format(v / 1e6)}M`}
               tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} stroke="var(--border)" />
             <Tooltip content={<Tip />} cursor={{ fill: "var(--muted)", opacity: 0.4 }} />
             <ReferenceLine y={d.umbral} stroke={COLOR_VOL} strokeDasharray="4 3" strokeOpacity={0.8}
@@ -214,8 +233,13 @@ export function FxRuedaChart() {
               strokeOpacity={0.7}
               label={{ value: `prom ${enM(d.promedio)}`, position: "insideBottomRight",
                        fontSize: 9, fill: "var(--muted-foreground)" }} />
-            <Bar dataKey="vol" fill={COLOR_VOL} fillOpacity={0.75} isAnimationActive={false}
-              maxBarSize={4} />
+            <Bar dataKey="vol" isAnimationActive={false} maxBarSize={4}>
+              {d.serie.map((o, i) => (
+                <Cell key={i}
+                  fill={o.vol >= d.umbral ? COLOR_VOL : COLOR_BAJO}
+                  fillOpacity={o.vol >= d.umbral ? 0.9 : 0.45} />
+              ))}
+            </Bar>
           </BarChart>
         </ResponsiveContainer>
       </CardContent>
