@@ -37,10 +37,11 @@ const fetcher = async () => {
     return allFlows
   }
 
-  const [allFlowsRaw, instrumentsResult, pricesResult] = await Promise.all([
+  const [allFlowsRaw, instrumentsResult, pricesResult, holidaysResult] = await Promise.all([
     fetchAllFlows(),
     supabase.from("instruments").select("*").eq("moneda_pago", "ARS").eq("is_active", true),
     supabase.from("prices").select("*"),
+    supabase.from("holidays").select("holiday_date"),
   ])
 
   if (instrumentsResult.error) throw instrumentsResult.error
@@ -54,6 +55,24 @@ const fetcher = async () => {
   // en algún momento no coincidan.
   //
   // moneda_pago=ARS incluye a los dólar linked, que tienen su propio dashboard.
+  /**
+   * Fecha de liquidación: T+1 hábil, el mismo criterio que lib/calendario.py.
+   * Los días al vencimiento se cuentan desde acá y no desde hoy, porque es
+   * desde acá que los motores miden la duración: para un bullet, la duración
+   * en días y los días al vencimiento dan exactamente el mismo número, y
+   * contando desde hoy quedaba uno arriba —o más, después de un fin de semana.
+   */
+  const feriados = new Set((holidaysResult.data || []).map((h: any) => String(h.holiday_date).slice(0, 10)))
+  const esHabil = (d: Date) => {
+    const dia = d.getUTCDay()
+    return dia !== 0 && dia !== 6 && !feriados.has(d.toISOString().slice(0, 10))
+  }
+  const hoyAr = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Argentina/Buenos_Aires" })
+    .format(new Date())
+  const liquidacion = new Date(`${hoyAr}T00:00:00Z`)
+  do { liquidacion.setUTCDate(liquidacion.getUTCDate() + 1) } while (!esHabil(liquidacion))
+  const fechaLiquidacion = liquidacion.toISOString().slice(0, 10)
+
   const instrumentsData = (instrumentsResult.data || [])
     .filter((i: any) => i.instrument_type !== "DLK")
   const pricesData = pricesResult.data || []
@@ -127,7 +146,7 @@ const fetcher = async () => {
   const uniqueTipos = [...new Set(instrumentsData.map((i: any) => i.tipo_cupon).filter(Boolean))].sort() as string[]
   const uniqueMonedas = [...new Set(instrumentsData.map((i: any) => i.moneda_denom).filter(Boolean))].sort() as string[]
 
-  return { flowsWithDetails, emisores: uniqueEmisores, tipos: uniqueTipos, monedas: uniqueMonedas }
+  return { fechaLiquidacion, flowsWithDetails, emisores: uniqueEmisores, tipos: uniqueTipos, monedas: uniqueMonedas }
 }
 
 export default function SoberanosArsDashboard() {
@@ -196,7 +215,7 @@ export default function SoberanosArsDashboard() {
             </TabsList>
             <TabsContent value="CER" className="space-y-6">
               <SoberanosArsDetailsFilters monedas={data.monedas} emisores={data.emisores} onFiltersChange={handleDetailsFiltersChange} />
-              <SoberanosArsDetailsTable flows={filteredDetailsData} activeTab={activeTab} />
+              <SoberanosArsDetailsTable flows={filteredDetailsData} activeTab={activeTab} fechaLiquidacion={data.fechaLiquidacion} />
               <CurvaForward
                 flows={data.flowsWithDetails}
                 titulo="Soberanos CER · TIR real"
@@ -205,7 +224,7 @@ export default function SoberanosArsDashboard() {
             </TabsContent>
             <TabsContent value="FIJA" className="space-y-6">
               <SoberanosArsDetailsFilters monedas={data.monedas} emisores={data.emisores} onFiltersChange={handleDetailsFiltersChange} />
-              <SoberanosArsDetailsTable flows={filteredDetailsData} activeTab={activeTab} />
+              <SoberanosArsDetailsTable flows={filteredDetailsData} activeTab={activeTab} fechaLiquidacion={data.fechaLiquidacion} />
               <CurvaForward
                 flows={data.flowsWithDetails}
                 titulo="Soberanos tasa fija · TIR nominal"
@@ -214,7 +233,7 @@ export default function SoberanosArsDashboard() {
             </TabsContent>
             <TabsContent value="TAMAR" className="space-y-6">
               <SoberanosArsDetailsFilters monedas={data.monedas} emisores={data.emisores} onFiltersChange={handleDetailsFiltersChange} />
-              <SoberanosArsDetailsTable flows={filteredDetailsData} activeTab={activeTab} />
+              <SoberanosArsDetailsTable flows={filteredDetailsData} activeTab={activeTab} fechaLiquidacion={data.fechaLiquidacion} />
             </TabsContent>
           </Tabs>
         )}
