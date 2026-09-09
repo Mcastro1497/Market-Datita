@@ -184,7 +184,11 @@ export function FxRuedaChart() {
         </CardDescription>
       </CardHeader>
 
-      <CardContent className="space-y-1">
+      {/* Ancho acotado a propósito. Las mismas 157 operaciones estiradas sobre
+          1300px quedan como un peine ralo de barras aisladas; apretadas forman
+          una textura donde se lee de un vistazo cuándo el mercado late seguido
+          y cuándo se queda quieto. */}
+      <CardContent className="max-w-3xl space-y-1">
         <ResponsiveContainer width="100%" height={280}>
           <ComposedChart margin={{ top: 14, right: 16, bottom: 0, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
@@ -220,12 +224,13 @@ export function FxRuedaChart() {
             <span className="h-px w-4 bg-muted-foreground" />prom {enM(d.promedio)}
           </span>
         </div>
-        <ResponsiveContainer width="100%" height={110}>
+        <ResponsiveContainer width="100%" height={190}>
           <BarChart data={d.serie} margin={{ top: 4, right: 16, bottom: 4, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
             <XAxis {...ejeX} />
             <YAxis width={62} tickFormatter={(v: number) => `${nf2.format(v / 1e6)}M`}
-              tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} stroke="var(--border)" />
+              tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} stroke="var(--border)"
+              tickCount={6} />
             <Tooltip content={<Tip />} cursor={{ fill: "var(--muted)", opacity: 0.4 }} />
             <ReferenceLine y={d.umbral} stroke={COLOR_VOL} strokeDasharray="4 3" strokeOpacity={0.8}
               label={{ value: "p75", position: "insideTopRight", fontSize: 9, fill: COLOR_VOL }} />
@@ -233,11 +238,11 @@ export function FxRuedaChart() {
               strokeOpacity={0.7}
               label={{ value: `prom ${enM(d.promedio)}`, position: "insideBottomRight",
                        fontSize: 9, fill: "var(--muted-foreground)" }} />
-            <Bar dataKey="vol" isAnimationActive={false} maxBarSize={4}>
+            <Bar dataKey="vol" isAnimationActive={false} barSize={3} minPointSize={2}>
               {d.serie.map((o, i) => (
                 <Cell key={i}
                   fill={o.vol >= d.umbral ? COLOR_VOL : COLOR_BAJO}
-                  fillOpacity={o.vol >= d.umbral ? 0.9 : 0.45} />
+                  fillOpacity={o.vol >= d.umbral ? 1 : 0.55} />
               ))}
             </Bar>
           </BarChart>
