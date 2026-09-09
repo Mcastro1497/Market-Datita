@@ -46,12 +46,16 @@ const fetcher = async () => {
   if (instrumentsResult.error) throw instrumentsResult.error
   if (pricesResult.error) throw pricesResult.error
 
-  // Categoría del tab según la referencia de tasa (instruments_v2.referencias)
-  const categoriaArs = (ref: string | null) =>
-    ref === "CER" ? "CER" : ref === "Tamar" ? "TAMAR" : ref === "A3500" ? "DLK" : "FIJA"
-
-  // moneda_pago=ARS incluye dólar-linked (referencias=A3500); esos van al dashboard DLK, acá se excluyen
-  const instrumentsData = (instrumentsResult.data || []).filter((i: any) => i.referencias !== "A3500")
+  // La categoría sale de instruments.instrument_type, que es la columna donde ya
+  // está resuelta. Antes se volvía a deducir acá desde `referencias`, y eso puso
+  // a D10Y7 —dólar linked— en la solapa FIJA: vino del screener sin referencia,
+  // y sin ella no era ni A3500 ni CER ni Tamar, así que caía en FIJA por
+  // descarte. Deducir dos veces lo mismo en dos lugares distintos garantiza que
+  // en algún momento no coincidan.
+  //
+  // moneda_pago=ARS incluye a los dólar linked, que tienen su propio dashboard.
+  const instrumentsData = (instrumentsResult.data || [])
+    .filter((i: any) => i.instrument_type !== "DLK")
   const pricesData = pricesResult.data || []
 
   const arsSymbols = new Set(instrumentsData.map((i: any) => i.symbol))
@@ -85,7 +89,7 @@ const fetcher = async () => {
       emisor: instr?.emisor || "Tesoro Argentino",
       details: instr ? {
         ticker:            instr.symbol,
-        instrument_type:   categoriaArs(instr.referencias),
+        instrument_type:   instr.instrument_type,
         cer_t10:           cerT10,
         ratio_cer:         ratioCer,
         vencimiento:       instr.vencimiento,
