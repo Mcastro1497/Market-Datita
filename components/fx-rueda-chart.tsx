@@ -1,33 +1,39 @@
 "use client"
 
 /**
- * Recorrido intradiario del dólar mayorista de MAE, con el volumen encima.
+ * Recorrido intradiario del dólar mayorista de MAE: precio, VWAP y volumen.
  *
  * DE DÓNDE SALE
- * De `/api/fx-rueda`, que proxea el endpoint `datosgrafico` de MAE. Ese endpoint
- * devuelve la rueda entera —una entrada por OPERACIÓN, con su volumen— y acepta
- * cualquier fecha pasada, así que no hace falta guardar nada: el histórico se
- * pide cuando se necesita.
+ * De `/api/fx-rueda`, que proxea el endpoint `datosgrafico` de MAE. Devuelve la
+ * rueda entera —una entrada por OPERACIÓN, con su volumen— y acepta cualquier
+ * fecha pasada, así que no hace falta guardar nada.
  *
- * EL VOLUMEN ES POR OPERACIÓN
- * No es un acumulado del día, así que no hay que restar nada contra la lectura
- * anterior: cada burbuja es una operación y su tamaño, lo que se operó ahí.
+ * EL VWAP ES ACUMULADO, NO UNA MEDIA MÓVIL
+ * VWAP(t) = Σ(precio·volumen) / Σ(volumen) desde la apertura hasta t. Por eso
+ * arranca pegado al primer precio y se va aquietando: cada operación nueva pesa
+ * cada vez menos contra todo lo anterior. Es el precio promedio al que
+ * efectivamente se operó el día, que es contra lo que se mide una ejecución.
  *
- * El ÁREA del círculo es proporcional al monto, no el radio. Con el radio, una
- * operación del doble se vería cuatro veces más grande, que es justo lo que uno
- * cree estar comparando cuando mira burbujas.
+ * QUÉ ES UNA OPERACIÓN "ALTA"
+ * Las de volumen mayor o igual al percentil 75 de la rueda. Umbral relativo y no
+ * un monto fijo: una rueda tranquila y una movida no se miden con la misma vara,
+ * y lo que interesa es dónde se operó fuerte PARA ESE DÍA. Sólo esas llevan
+ * burbuja; dibujar las 144 tapa la línea.
+ *
+ * El ÁREA del círculo es proporcional al monto, no el radio: con el radio, una
+ * operación del doble se vería cuatro veces más grande.
  *
  * LA HORA VIENE CORRIDA
- * MAE manda `time` como la hora de Buenos Aires codificada como si fuera UTC.
- * Por eso se formatea en UTC: así sale la hora local correcta. Leerlo como
- * UTC-3 mueve toda la rueda tres horas para atrás, a horario de mercado cerrado.
+ * MAE manda `time` como hora de Buenos Aires codificada como si fuera UTC, así
+ * que se formatea en UTC. Leerlo como UTC-3 corre la rueda tres horas para
+ * atrás, a mercado cerrado.
  */
 
 import { useEffect, useMemo, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import {
-  CartesianGrid, ComposedChart, Line, ReferenceLine, ResponsiveContainer,
-  Scatter, Tooltip, XAxis, YAxis, ZAxis,
+  Bar, BarChart, CartesianGrid, ComposedChart, Line, ReferenceLine,
+  ResponsiveContainer, Scatter, Tooltip, XAxis, YAxis, ZAxis,
 } from "recharts"
 
 type Punto = { time: number; value: number }
@@ -38,8 +44,11 @@ const hhmm = (epoch: number) =>
   }).format(new Date(epoch * 1000))
 
 const nf2 = new Intl.NumberFormat("es-AR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-const nf0 = new Intl.NumberFormat("es-AR", { maximumFractionDigits: 0 })
-const enM = (v: number) => `${nf0.format(v / 1e6)} M`
+const enM = (v: number) => `${nf2.format(v / 1e6)} M`
+
+const COLOR_PRECIO = "var(--chart-1)"
+const COLOR_VWAP = "var(--success)"
+const COLOR_VOL = "#c2410c"
 
 export function FxRuedaChart() {
   const [precios, setPrecios] = useState<Punto[]>([])
@@ -69,114 +78,146 @@ export function FxRuedaChart() {
     return () => { cancel = true; clearInterval(id) }
   }, [])
 
-  const { linea, burbujas, resumen, volMax } = useMemo(() => {
-    const linea = precios.map((p) => ({ t: p.time, tc: p.value }))
-    const porTiempo = new Map(precios.map((p) => [p.time, p.value]))
-    const burbujas = volumenes
-      .filter((v) => v.value > 0 && porTiempo.has(v.time))
-      .map((v) => ({ t: v.time, tc: porTiempo.get(v.time)!, vol: v.value }))
-    const vals = precios.map((p) => p.value)
+  const d = useMemo(() => {
+    // MAE manda las dos series alineadas, una entrada por operación. Si algún día
+    // no coinciden se cae al cruce por timestamp, que es más lento pero no miente.
+    const porTiempo = new Map(volumenes.map((v) => [v.time, v.value]))
+    const alineadas = precios.length === volumenes.length
+    const ops = precios.map((p, i) => ({
+      t: p.time,
+      tc: p.value,
+      vol: alineadas ? volumenes[i].value : (porTiempo.get(p.time) ?? 0),
+    }))
+    if (!ops.length) return null
+
+    // VWAP acumulado desde la apertura.
+    let sumaPV = 0, sumaV = 0
+    const serie = ops.map((o) => {
+      sumaPV += o.tc * o.vol
+      sumaV += o.vol
+      return { ...o, vwap: sumaV > 0 ? sumaPV / sumaV : o.tc }
+    })
+
+    const vols = ops.map((o) => o.vol).filter((v) => v > 0).sort((a, b) => a - b)
+    const p75 = vols.length ? vols[Math.floor(vols.length * 0.75)] : 0
+    const promedio = vols.length ? vols.reduce((a, b) => a + b, 0) / vols.length : 0
+    const altos = serie.filter((o) => o.vol >= p75 && o.vol > 0)
+
     return {
-      linea, burbujas,
-      volMax: burbujas.reduce((m, b) => Math.max(m, b.vol), 0),
-      resumen: vals.length ? {
-        apertura: vals[0], ultimo: vals[vals.length - 1],
-        minimo: Math.min(...vals), maximo: Math.max(...vals),
-        total: volumenes.reduce((s, v) => s + v.value, 0),
-        operaciones: volumenes.length,
-      } : null,
+      serie, altos, umbral: p75, promedio,
+      volMax: vols.length ? vols[vols.length - 1] : 0,
+      total: vols.reduce((a, b) => a + b, 0),
+      precio: serie[serie.length - 1].tc,
+      vwap: serie[serie.length - 1].vwap,
+      t0: serie[0].t, t1: serie[serie.length - 1].t,
     }
   }, [precios, volumenes])
 
   if (cargando) return null
-  if (error || linea.length < 2) {
+  if (error || !d || d.serie.length < 2) {
     return (
       <Card>
         <CardHeader className="pb-2">
           <CardTitle className="text-lg">Rueda del mayorista</CardTitle>
-          <CardDescription>
-            {error ?? "Todavía no hay operaciones de hoy en MAE."}
-          </CardDescription>
+          <CardDescription>{error ?? "Todavía no hay operaciones de hoy en MAE."}</CardDescription>
         </CardHeader>
       </Card>
     )
   }
 
-  const t0 = linea[0].t, t1 = linea[linea.length - 1].t
-  const paso = 30 * 60           // marcas cada media hora, en hora redonda
+  const paso = 30 * 60
   const marcas: number[] = []
-  for (let t = Math.ceil(t0 / paso) * paso; t <= t1; t += paso) marcas.push(t)
+  for (let t = Math.ceil(d.t0 / paso) * paso; t <= d.t1; t += paso) marcas.push(t)
+  const ejeX = {
+    type: "number" as const, dataKey: "t", domain: [d.t0, d.t1] as [number, number],
+    ticks: marcas, tickFormatter: hhmm,
+    tick: { fontSize: 11, fill: "var(--muted-foreground)" },
+    stroke: "var(--border)", allowDuplicatedCategory: false,
+  }
+
+  const Tip = ({ active, payload }: any) => {
+    const p = payload?.[0]?.payload
+    if (!active || !p) return null
+    return (
+      <div className="rounded-md border px-3 py-2 text-xs"
+           style={{ background: "var(--popover)", borderColor: "var(--border)" }}>
+        <div className="font-medium tabular-nums">{hhmm(p.t)}</div>
+        {p.tc != null && <div className="tabular-nums">TC {nf2.format(p.tc)}</div>}
+        {p.vwap != null && (
+          <div className="tabular-nums" style={{ color: COLOR_VWAP }}>VWAP {nf2.format(p.vwap)}</div>
+        )}
+        {p.vol > 0 && (
+          <div className="tabular-nums text-muted-foreground">
+            Operado {enM(p.vol)}{p.vol >= d.umbral ? " · alto" : ""}
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <Card>
       <CardHeader className="pb-2">
         <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
           <CardTitle className="text-lg">Rueda del mayorista</CardTitle>
-          {resumen && (
-            <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
-              <span>Apertura <span className="font-medium tabular-nums text-foreground">{nf2.format(resumen.apertura)}</span></span>
-              <span>Mín <span className="font-medium tabular-nums text-foreground">{nf2.format(resumen.minimo)}</span></span>
-              <span>Máx <span className="font-medium tabular-nums text-foreground">{nf2.format(resumen.maximo)}</span></span>
-              <span>Último <span className="font-medium tabular-nums text-foreground">{nf2.format(resumen.ultimo)}</span></span>
-              <span>Operado <span className="font-medium tabular-nums text-foreground">{enM(resumen.total)}</span></span>
-            </div>
-          )}
+          <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+            <span>Precio <span className="font-medium tabular-nums text-foreground">{nf2.format(d.precio)}</span></span>
+            <span>VWAP <span className="font-medium tabular-nums" style={{ color: COLOR_VWAP }}>{nf2.format(d.vwap)}</span></span>
+            <span>Operado <span className="font-medium tabular-nums text-foreground">{enM(d.total)}</span></span>
+            <span className="tabular-nums">{d.serie.length} ops · {d.altos.length} altas</span>
+          </div>
         </div>
-        <CardDescription>
-          Cada círculo es una operación; el área es proporcional al monto.
+        <CardDescription className="flex flex-wrap items-center gap-x-4 gap-y-1">
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-0.5 w-4 rounded" style={{ background: COLOR_PRECIO }} />Precio
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-0.5 w-4 rounded" style={{ background: COLOR_VWAP }} />VWAP acumulado
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <span className="h-2 w-2 rounded-full" style={{ background: COLOR_VOL, opacity: 0.55 }} />
+            Operación alta (≥ p75 = {enM(d.umbral)})
+          </span>
         </CardDescription>
       </CardHeader>
-      <CardContent>
-        <ResponsiveContainer width="100%" height={340}>
-          <ComposedChart margin={{ top: 16, right: 16, bottom: 8, left: 0 }}>
+
+      <CardContent className="space-y-1">
+        <ResponsiveContainer width="100%" height={280}>
+          <ComposedChart margin={{ top: 14, right: 16, bottom: 0, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-            <XAxis
-              type="number" dataKey="t" domain={[t0, t1]} ticks={marcas}
-              tickFormatter={hhmm}
-              tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
-              stroke="var(--border)" allowDuplicatedCategory={false}
-            />
-            <YAxis
-              type="number" dataKey="tc" domain={["dataMin - 0.5", "dataMax + 0.5"]} width={62}
+            <XAxis {...ejeX} tick={false} height={0} />
+            <YAxis type="number" dataKey="tc" domain={["dataMin - 0.5", "dataMax + 0.5"]} width={62}
               tickFormatter={(v: number) => nf2.format(v)}
-              tick={{ fontSize: 11, fill: "var(--muted-foreground)" }}
-              stroke="var(--border)"
-            />
-            {/* El volumen sólo define el tamaño del círculo, no un eje visible. */}
-            <ZAxis type="number" dataKey="vol" range={[30, 900]} domain={[0, volMax || 1]} />
-            {resumen && (
-              <ReferenceLine y={resumen.apertura} stroke="var(--muted-foreground)"
-                strokeDasharray="4 4" strokeOpacity={0.7}
-                label={{ value: "apertura", position: "insideTopLeft", fontSize: 10,
-                         fill: "var(--muted-foreground)" }} />
-            )}
-            <Tooltip
-              content={({ active, payload }: any) => {
-                const p = payload?.[0]?.payload
-                if (!active || !p) return null
-                return (
-                  <div className="rounded-md border px-3 py-2 text-xs"
-                       style={{ background: "var(--popover)", borderColor: "var(--border)" }}>
-                    <div className="font-medium tabular-nums">{hhmm(p.t)}</div>
-                    <div className="tabular-nums">TC {nf2.format(p.tc)}</div>
-                    {p.vol != null && (
-                      <div className="tabular-nums text-muted-foreground">Operado {enM(p.vol)}</div>
-                    )}
-                  </div>
-                )
-              }}
-            />
-            <Line data={linea} type="linear" dataKey="tc" stroke="var(--chart-1)" strokeWidth={2}
+              tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} stroke="var(--border)" />
+            <ZAxis type="number" dataKey="vol" range={[40, 850]} domain={[d.umbral, d.volMax || 1]} />
+            <Tooltip content={<Tip />} />
+            <Line data={d.serie} type="linear" dataKey="tc" stroke={COLOR_PRECIO} strokeWidth={1.75}
               dot={false} isAnimationActive={false} />
-            <Scatter data={burbujas} dataKey="tc" fill="#c2410c" fillOpacity={0.3}
-              stroke="#c2410c" strokeOpacity={0.75} isAnimationActive={false} />
+            <Line data={d.serie} type="monotone" dataKey="vwap" stroke={COLOR_VWAP} strokeWidth={2}
+              dot={false} isAnimationActive={false} />
+            <Scatter data={d.altos} dataKey="tc" fill={COLOR_VOL} fillOpacity={0.3}
+              stroke={COLOR_VOL} strokeOpacity={0.8} isAnimationActive={false} />
           </ComposedChart>
         </ResponsiveContainer>
-        {resumen && (
-          <p className="pt-1 text-xs tabular-nums text-muted-foreground">
-            {resumen.operaciones} operaciones · mayor {enM(volMax)}
-          </p>
-        )}
+
+        {/* Volumen por operación, en el mismo eje de tiempo que el precio de arriba. */}
+        <ResponsiveContainer width="100%" height={110}>
+          <BarChart data={d.serie} margin={{ top: 4, right: 16, bottom: 4, left: 0 }}>
+            <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
+            <XAxis {...ejeX} />
+            <YAxis width={62} tickFormatter={(v: number) => `${Math.round(v / 1e6)}M`}
+              tick={{ fontSize: 10, fill: "var(--muted-foreground)" }} stroke="var(--border)" />
+            <Tooltip content={<Tip />} cursor={{ fill: "var(--muted)", opacity: 0.4 }} />
+            <ReferenceLine y={d.umbral} stroke={COLOR_VOL} strokeDasharray="4 3" strokeOpacity={0.8}
+              label={{ value: "p75", position: "insideTopRight", fontSize: 9, fill: COLOR_VOL }} />
+            <ReferenceLine y={d.promedio} stroke="var(--muted-foreground)" strokeDasharray="2 3"
+              strokeOpacity={0.7}
+              label={{ value: `prom ${enM(d.promedio)}`, position: "insideBottomRight",
+                       fontSize: 9, fill: "var(--muted-foreground)" }} />
+            <Bar dataKey="vol" fill={COLOR_VOL} fillOpacity={0.75} isAnimationActive={false}
+              maxBarSize={4} />
+          </BarChart>
+        </ResponsiveContainer>
       </CardContent>
     </Card>
   )
