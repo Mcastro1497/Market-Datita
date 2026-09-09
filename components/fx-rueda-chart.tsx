@@ -49,9 +49,11 @@ const enM = (v: number) => `${nf2.format(v / 1e6)} M`
 const COLOR_PRECIO = "var(--chart-1)"
 const COLOR_VWAP = "var(--success)"
 const COLOR_VOL = "#c2410c"
-// Las operaciones chicas no se apagan del todo: son la textura de la rueda, y
-// en gris se ve cuándo el mercado se queda quieto y cuándo late seguido.
-const COLOR_BAJO = "var(--muted-foreground)"
+// Las chicas van en el mismo naranja pero claro, no en gris. Sobre fondo blanco
+// una barra de cuatro píxeles en gris al 55% no se ve: con el outlier de 45 M
+// fijando la escala, la mediana de 1 M mide eso y desaparecía. El naranja claro
+// mantiene la distinción de dos tonos y se lee.
+const COLOR_BAJO = "#c2410c"
 
 export function FxRuedaChart() {
   const [precios, setPrecios] = useState<Punto[]>([])
@@ -159,6 +161,7 @@ export function FxRuedaChart() {
   }
 
   return (
+    <div className="space-y-6">
     <Card>
       <CardHeader className="pb-2">
         <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
@@ -184,15 +187,11 @@ export function FxRuedaChart() {
         </CardDescription>
       </CardHeader>
 
-      {/* Ancho acotado a propósito. Las mismas 157 operaciones estiradas sobre
-          1300px quedan como un peine ralo de barras aisladas; apretadas forman
-          una textura donde se lee de un vistazo cuándo el mercado late seguido
-          y cuándo se queda quieto. */}
-      <CardContent className="max-w-3xl space-y-1">
-        <ResponsiveContainer width="100%" height={280}>
+      <CardContent>
+        <ResponsiveContainer width="100%" height={340}>
           <ComposedChart margin={{ top: 14, right: 16, bottom: 0, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
-            <XAxis {...ejeX} tick={false} height={0} />
+            <XAxis {...ejeX} />
             <YAxis type="number" dataKey="tc" domain={["dataMin - 0.5", "dataMax + 0.5"]} width={62}
               tickFormatter={(v: number) => nf2.format(v)}
               tick={{ fontSize: 11, fill: "var(--muted-foreground)" }} stroke="var(--border)" />
@@ -207,14 +206,28 @@ export function FxRuedaChart() {
           </ComposedChart>
         </ResponsiveContainer>
 
-        {/* Volumen por operación, en el mismo eje de tiempo que el precio de arriba. */}
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pl-[62px] text-[11px] text-muted-foreground">
+      </CardContent>
+    </Card>
+
+    {/* Tarjeta aparte y no un panel al pie: apretado contra el precio nunca
+        tiene alto suficiente, y las barras de la mediana quedan en dos píxeles.
+        Comparten dominio y marcas del eje, así que se leen alineados igual. */}
+    <Card>
+      <CardHeader className="pb-2">
+        <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+          <CardTitle className="text-lg">Volumen por operación</CardTitle>
+          <div className="text-xs tabular-nums text-muted-foreground">
+            mayor {enM(d.volMax)} · promedio {enM(d.promedio)}
+          </div>
+        </div>
+        <CardDescription className="flex flex-wrap items-center gap-x-4 gap-y-1">
           <span className="inline-flex items-center gap-1.5">
             <span className="h-2.5 w-2.5 rounded-[2px]" style={{ background: COLOR_VOL }} />
             vol alto (≥ p75 = {enM(d.umbral)})
           </span>
           <span className="inline-flex items-center gap-1.5">
-            <span className="h-2.5 w-2.5 rounded-[2px]" style={{ background: COLOR_BAJO }} />
+            <span className="h-2.5 w-2.5 rounded-[2px]"
+              style={{ background: COLOR_BAJO, opacity: 0.4 }} />
             vol bajo
           </span>
           <span className="inline-flex items-center gap-1.5">
@@ -223,8 +236,10 @@ export function FxRuedaChart() {
           <span className="inline-flex items-center gap-1.5">
             <span className="h-px w-4 bg-muted-foreground" />prom {enM(d.promedio)}
           </span>
-        </div>
-        <ResponsiveContainer width="100%" height={190}>
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <ResponsiveContainer width="100%" height={230}>
           <BarChart data={d.serie} margin={{ top: 4, right: 16, bottom: 4, left: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" vertical={false} />
             <XAxis {...ejeX} />
@@ -238,16 +253,17 @@ export function FxRuedaChart() {
               strokeOpacity={0.7}
               label={{ value: `prom ${enM(d.promedio)}`, position: "insideBottomRight",
                        fontSize: 9, fill: "var(--muted-foreground)" }} />
-            <Bar dataKey="vol" isAnimationActive={false} barSize={3} minPointSize={2}>
+            <Bar dataKey="vol" isAnimationActive={false} barSize={5} minPointSize={2}>
               {d.serie.map((o, i) => (
                 <Cell key={i}
                   fill={o.vol >= d.umbral ? COLOR_VOL : COLOR_BAJO}
-                  fillOpacity={o.vol >= d.umbral ? 1 : 0.55} />
+                  fillOpacity={o.vol >= d.umbral ? 1 : 0.4} />
               ))}
             </Bar>
           </BarChart>
         </ResponsiveContainer>
       </CardContent>
     </Card>
+    </div>
   )
 }
