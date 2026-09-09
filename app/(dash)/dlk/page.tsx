@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { DlkDetailsFilters } from "@/components/dlk-details-filters"
 import { DlkDetailsTable } from "@/components/dlk-details-table"
 import { CurvaForward } from "@/components/curva-forward"
+import { FxRuedaChart } from "@/components/fx-rueda-chart"
 import { Button } from "@/components/ui/button"
 import { createClient } from "@/lib/supabase/client"
 import type { DlkWithDetails } from "@/lib/types"
@@ -251,6 +252,8 @@ export default function DlkDashboard() {
             </div>
           )}
         </div>
+
+        <FxRuedaChart />
 
         {data && <DlkDetailsFilters legislaciones={data.legislaciones} jurisdicciones={data.jurisdicciones} emisores={data.emisores} onFiltersChange={handleDetailsFiltersChange} />}
         <DlkDetailsTable flows={filteredDetailsData} fxOficial={data?.fxOficial ?? null} />
