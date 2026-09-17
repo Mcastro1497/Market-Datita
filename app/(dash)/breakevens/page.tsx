@@ -51,7 +51,8 @@ const fetcher = async () => {
   cer.sort((a, b) => a.dur - b.dur)
   fija.sort((a, b) => a.dur - b.dur)
 
-  return { fechaLiquidacion, fija, cer, cerFijados, rem: remRes }
+  const vtosCer = new Set(cer.map((c) => c.vto))
+  return { fechaLiquidacion, fija, cer, cerFijados, pares: fija.filter((f) => vtosCer.has(f.vto)).length, rem: remRes }
 }
 
 export default function BreakevensPage() {
@@ -91,7 +92,7 @@ export default function BreakevensPage() {
         {data && (
           <Tabs defaultValue="cer" className="w-full">
             <TabsList className="mb-6">
-              <TabsTrigger value="cer">CER / Fija · inflación ({data.fija.length})</TabsTrigger>
+              <TabsTrigger value="cer">CER / Fija · inflación ({data.pares})</TabsTrigger>
             </TabsList>
             <TabsContent value="cer">
               <BreakevenCerFija

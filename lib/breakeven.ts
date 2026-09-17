@@ -3,81 +3,122 @@
  *
  * QUÉ ES
  * Un bono fija rinde una TIR nominal en pesos; un CER, una TIR real. La
- * inflación que iguala las dos es el breakeven: (1 + nominal) / (1 + real) − 1.
- * Por encima de esa inflación gana el CER, por debajo gana la fija. Se lee en
- * mensual (TEM) porque así se cotiza en la mesa y así lo publica el INDEC.
+ * inflación que iguala las dos es el breakeven: (1 + nominal) / (1 + real) − 1
+ * en TEA, o llevado al plazo del bono, la inflación ACUMULADA que tiene que
+ * haber entre la liquidación y el vencimiento para que dé lo mismo comprar uno
+ * u otro. Por encima gana el CER, por debajo la fija.
  *
- * DE DÓNDE SALE LA TIR REAL
- * Del par exacto cuando el Tesoro emitió una fija y un CER al mismo vencimiento
- * (S30O6 / TZXO6). Si no hay par, se interpola linealmente la curva CER por
- * duration. Antes del primer CER o después del último no se extrapola: se toma
- * el CER más cercano y la fila queda marcada, para que no se lea como dato.
+ * SÓLO PARES
+ * Se compara únicamente cuando el Tesoro emitió una fija y un CER al MISMO
+ * vencimiento (S30O6 / TZXO6). Interpolar la curva CER a la duration de una
+ * fija sin par mete el error de la interpolación adentro de un número que se
+ * lee en centésimas de punto mensual; no vale la pena.
+ *
+ * TRAMOS
+ * Si el par de octubre descuenta 2% acumulado y el de noviembre 4%, la
+ * inflación implícita entre octubre y noviembre es 1,04 / 1,02 − 1 = 1,96%.
+ * Es la misma cuenta que una forward de tasas, sobre acumulados en vez de
+ * TIRs: cada tramo va del vencimiento del par anterior al de éste, y el
+ * primero arranca en la liquidación.
+ *
+ * REZAGO DEL CER
+ * El CER de un día refleja el IPC de unos 45 días antes: el índice de
+ * septiembre se publica a mediados de octubre y rige del 16 de octubre al 15
+ * de noviembre. Lo que capitaliza un CER que vence el 30 de noviembre no es la
+ * inflación hasta noviembre sino hasta mediados de octubre. Por eso cada tramo
+ * se etiqueta con la ventana corrida (liq − 45 → vto − 45), y el REM se
+ * compara sobre esa ventana, no sobre el calendario del bono.
  *
  * LOS CER CON `cer_fixed` NO ENTRAN
  * A diez hábiles del vencimiento el CER del pago final ya está publicado y el
- * bono es un cupón cero nominal: su TIR "real" es una nominal disfrazada y el
- * breakeven contra una fija da un número sin sentido (medio punto anual).
+ * bono es un cupón cero nominal: su TIR "real" es una nominal disfrazada.
  *
- * TODAS LAS TASAS SON EFECTIVAS ANUALES (base 365), como las deja el XIRR de los
- * motores. TEM = (1 + TEA)^(1/12) − 1.
+ * Todas las tasas son efectivas anuales (base 365), como las deja el XIRR de
+ * los motores. TEM = (1 + TEA)^(1/12) − 1.
  */
 
 export type BonoBe = {
   symbol: string
   /** "YYYY-MM-DD" */
   vto: string
-  /** Duration de Macaulay en años. Es el eje sobre el que se interpola. */
+  /** Duration de Macaulay en años. Para un bullet, años hasta el vencimiento. */
   dur: number
   /** TEA. Nominal para fija, real para CER. */
   ytm: number
 }
 
-export type ModoReal = "par" | "interp" | "borde"
+export type Par = { fija: BonoBe; cer: BonoBe; vto: string; dur: number }
 
-export type RealDeCurva = {
-  ytm: number
-  modo: ModoReal
-  /** Qué CER lo explica: "TZXO6" o "TZXO6–TX26". */
-  ref: string
-}
+export const REZAGO_CER_DIAS = 45
+const DIA_MS = 86400000
 
 export const tem = (tea: number) => Math.pow(1 + tea, 1 / 12) - 1
-export const tea = (tem: number) => Math.pow(1 + tem, 12) - 1
 
 /** (1 + nominal) / (1 + real) − 1, en TEA. */
 export const breakeven = (nominal: number, real: number) => (1 + nominal) / (1 + real) - 1
 
-/**
- * TIR real a la duration `dur`, o del par exacto por vencimiento si existe.
- * `cer` viene ordenado por duration ascendente y sin los `cer_fixed`.
- */
-export function realEn(cer: BonoBe[], dur: number, vto: string): RealDeCurva | null {
-  if (!cer.length) return null
-  const par = cer.find((c) => c.vto === vto)
-  if (par) return { ytm: par.ytm, modo: "par", ref: par.symbol }
-  const first = cer[0], last = cer[cer.length - 1]
-  if (dur <= first.dur) return { ytm: first.ytm, modo: "borde", ref: first.symbol }
-  if (dur >= last.dur) return { ytm: last.ytm, modo: "borde", ref: last.symbol }
-  for (let i = 1; i < cer.length; i++) {
-    const a = cer[i - 1], b = cer[i]
-    if (dur <= b.dur) {
-      const w = (dur - a.dur) / (b.dur - a.dur || 1)
-      return { ytm: a.ytm + w * (b.ytm - a.ytm), modo: "interp", ref: `${a.symbol}–${b.symbol}` }
-    }
-  }
-  return { ytm: last.ytm, modo: "borde", ref: last.symbol }
+/** Breakeven llevado al plazo: inflación acumulada de la liquidación al vencimiento. */
+export const acumulada = (beTea: number, dur: number) => Math.pow(1 + beTea, dur) - 1
+
+/** Acumulado de un tramo → mensual equivalente, con el tramo medido en años. */
+export const mensualDe = (acum: number, anios: number) =>
+  anios > 0 ? Math.pow(1 + acum, 1 / (anios * 12)) - 1 : null
+
+/** Fijas y CER con el mismo vencimiento, ordenados por vencimiento. */
+export function emparejar(fija: BonoBe[], cer: BonoBe[]): Par[] {
+  const cerPorVto = new Map(cer.map((c) => [c.vto, c]))
+  return fija
+    .map((f) => {
+      const c = cerPorVto.get(f.vto)
+      return c ? { fija: f, cer: c, vto: f.vto, dur: f.dur } : null
+    })
+    .filter((p): p is Par => p !== null)
+    .sort((a, b) => a.vto.localeCompare(b.vto))
 }
 
-/**
- * Inflación implícita entre dos horizontes: la que hay que tener entre t1 y t2
- * para que el breakeven a t2 sea consistente con el de t1. Es la misma cuenta
- * que la forward de tasas, sobre breakevens en vez de TIRs.
- * F(1,2) = [ (1+B2)^t2 / (1+B1)^t1 ] ^ ( 1/(t2−t1) ) − 1
- */
-export function forwardBe(b1: number, t1: number, b2: number, t2: number): number | null {
-  if (!(t2 > t1)) return null
-  return Math.pow(Math.pow(1 + b2, t2) / Math.pow(1 + b1, t1), 1 / (t2 - t1)) - 1
+export type Tramo = {
+  par: Par
+  be: number
+  /** Inflación acumulada liq → vto que descuenta el par. */
+  acum: number
+  /** Inflación del tramo: (1 + acum) / (1 + acum del par anterior) − 1. */
+  tramo: number
+  tramoMensual: number | null
+  /** Años del tramo. */
+  anios: number
+  desde: Par | null
+  /** Ventana de inflación que cubre el tramo, corrida por el rezago del CER. */
+  ventana: { desde: Date; hasta: Date }
 }
+
+export function tramos(pares: Par[], liquidacion: Date): Tramo[] {
+  const out: Tramo[] = []
+  let acumPrev = 0
+  let durPrev = 0
+  let parPrev: Par | null = null
+  for (const p of pares) {
+    const be = breakeven(p.fija.ytm, p.cer.ytm)
+    const acum = acumulada(be, p.dur)
+    const tramo = (1 + acum) / (1 + acumPrev) - 1
+    const anios = p.dur - durPrev
+    const d0 = parPrev ? fechaUtc(parPrev.vto) : liquidacion
+    out.push({
+      par: p, be, acum, tramo, anios,
+      tramoMensual: mensualDe(tramo, anios),
+      desde: parPrev,
+      ventana: {
+        desde: new Date(d0.getTime() - REZAGO_CER_DIAS * DIA_MS),
+        hasta: new Date(fechaUtc(p.vto).getTime() - REZAGO_CER_DIAS * DIA_MS),
+      },
+    })
+    acumPrev = acum
+    durPrev = p.dur
+    parPrev = p
+  }
+  return out
+}
+
+export const fechaUtc = (iso: string) => new Date(`${iso}T00:00:00Z`)
 
 // ── Senda del REM ─────────────────────────────────────────────────────────────
 
@@ -117,7 +158,6 @@ export function sendaRem(
     const anio = Number(cursor.slice(0, 4))
     const objetivo = anualDe.get(anio)
     if (objetivo != null) {
-      // Meses del año ya en la senda y los que faltan cubrir hasta diciembre.
       let acumulado = 1
       let faltan = 0
       for (let m = 1; m <= 12; m++) {
@@ -147,40 +187,31 @@ function mesSiguiente(m: string): string {
   return mm === 12 ? `${y + 1}-01` : `${y}-${String(mm + 1).padStart(2, "0")}`
 }
 
+export const claveMes = (d: Date) =>
+  `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`
+
 /**
- * Inflación mensual equivalente que espera la senda entre dos fechas, con la
- * ventana corrida `rezagoDias` para atrás. Cada mes pesa por la fracción de sus
- * días que cae en la ventana.
- *
- * POR QUÉ EL REZAGO
- * El CER de un día refleja el IPC de dos meses antes (el índice de marzo se
- * publica a mediados de abril y rige del 16 de abril al 15 de mayo). Lo que
- * capitaliza un bono CER entre la liquidación y el vencimiento no es la
- * inflación de ese lapso sino la de ~45 días antes. Comparar el breakeven con
- * el REM del mismo calendario que el bono lo desfasa un mes y medio, y en el
- * tramo corto eso es todo el dato.
+ * Inflación que espera la senda en una ventana ya corrida por el rezago:
+ * acumulada y mensual equivalente. Cada mes pesa por la fracción de sus días
+ * que cae en la ventana. null si a la senda le falta algún mes.
  */
-export function remEntre(
+export function remEnVentana(
   senda: Map<string, number>,
   desde: Date,
   hasta: Date,
-  rezagoDias = 45,
-): number | null {
-  const d0 = new Date(desde.getTime() - rezagoDias * 86400000)
-  const d1 = new Date(hasta.getTime() - rezagoDias * 86400000)
-  if (!(d1 > d0)) return null
+): { acum: number; mensual: number } | null {
+  if (!(hasta > desde)) return null
   let logAcum = 0
   let meses = 0
-  const cur = new Date(Date.UTC(d0.getUTCFullYear(), d0.getUTCMonth(), 1))
-  while (cur < d1) {
+  const cur = new Date(Date.UTC(desde.getUTCFullYear(), desde.getUTCMonth(), 1))
+  while (cur < hasta) {
     const fin = new Date(Date.UTC(cur.getUTCFullYear(), cur.getUTCMonth() + 1, 1))
-    const diasMes = (fin.getTime() - cur.getTime()) / 86400000
-    const ini = Math.max(cur.getTime(), d0.getTime())
-    const end = Math.min(fin.getTime(), d1.getTime())
-    const enVentana = (end - ini) / 86400000
+    const diasMes = (fin.getTime() - cur.getTime()) / DIA_MS
+    const ini = Math.max(cur.getTime(), desde.getTime())
+    const end = Math.min(fin.getTime(), hasta.getTime())
+    const enVentana = (end - ini) / DIA_MS
     if (enVentana > 0) {
-      const k = `${cur.getUTCFullYear()}-${String(cur.getUTCMonth() + 1).padStart(2, "0")}`
-      const v = senda.get(k)
+      const v = senda.get(claveMes(cur))
       if (v == null) return null
       logAcum += Math.log(1 + v) * (enVentana / diasMes)
       meses += enVentana / diasMes
@@ -188,7 +219,5 @@ export function remEntre(
     cur.setTime(fin.getTime())
   }
   if (!meses) return null
-  // Acumulado de la ventana llevado a mensual equivalente. Se cuenta en meses
-  // calendario y no en días/30,4 para que un mes entero devuelva su propia tasa.
-  return Math.exp(logAcum / meses) - 1
+  return { acum: Math.exp(logAcum) - 1, mensual: Math.exp(logAcum / meses) - 1 }
 }
