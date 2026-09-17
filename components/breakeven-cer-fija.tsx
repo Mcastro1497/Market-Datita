@@ -168,8 +168,8 @@ export function BreakevenCerFija({ fija, cer, cerFijados, fechaLiquidacion, rem 
       <div style={estiloTooltip} className="px-3 py-2 space-y-0.5">
         <div className="font-medium">{fechaCorta(f.inicio.toISOString().slice(0, 10))} → {fechaCorta(f.par.vto)}</div>
         <div className="text-muted-foreground">Inflación de {mesesCubiertos(f.ventana.desde, f.ventana.hasta)}</div>
-        <div className="font-medium tabular-nums">Implícita {pct(f.tramo)} en el tramo · {pct(f.tramoMensual)} mensual</div>
-        {f.rem && <div className="tabular-nums">REM {pct(f.rem.acum)} · {pct(f.rem.mensual)} mensual</div>}
+        <div className="font-medium tabular-nums">Implícita {pct(f.tramoMensual)} mensual</div>
+        {f.rem && <div className="tabular-nums">REM {pct(f.rem.mensual)} mensual</div>}
       </div>
     )
   }
@@ -233,8 +233,7 @@ export function BreakevenCerFija({ fija, cer, cerFijados, fechaLiquidacion, rem 
                 <TableHead className="text-right">BE TEM</TableHead>
                 <TableHead className="text-right">BE acum.</TableHead>
                 <TableHead>Tramo desde</TableHead>
-                <TableHead className="text-right">Tramo</TableHead>
-                <TableHead className="text-right">Tramo TEM</TableHead>
+                <TableHead className="text-right">Implícita TEM</TableHead>
                 <TableHead>Inflación de</TableHead>
                 <TableHead className="text-right">REM tramo</TableHead>
                 <TableHead className="text-right">Δ TEM (pb)</TableHead>
@@ -257,7 +256,6 @@ export function BreakevenCerFija({ fija, cer, cerFijados, fechaLiquidacion, rem 
                       {fechaCorta(f.inicio.toISOString().slice(0, 10))}
                       {!f.desde && conocido && f.inicio.getTime() === conocido.hasta.getTime() && <span className="ml-1 text-[10px] uppercase">cer</span>}
                     </TableCell>
-                    <TableCell className="text-right tabular-nums">{pct(f.tramo)}</TableCell>
                     <TableCell className="text-right tabular-nums font-medium">{pct(f.tramoMensual)}</TableCell>
                     <TableCell className="whitespace-nowrap text-muted-foreground" title={`${diaMes(f.ventana.desde)} → ${diaMes(f.ventana.hasta)}`}>
                       {mesesCubiertos(f.ventana.desde, f.ventana.hasta)}
@@ -270,9 +268,9 @@ export function BreakevenCerFija({ fija, cer, cerFijados, fechaLiquidacion, rem 
             </TableBody>
           </Table>
           <p className="mt-3 text-xs text-muted-foreground">
-            Tramo: inflación implícita entre "Tramo desde" y el vencimiento, (1 + acum.) / (1 + acum. anterior) − 1. Para el
-            primer par, el denominador es el CER ya publicado, no la liquidación. Δ positivo: el mercado descuenta más
-            inflación que el REM para esos meses.
+            Implícita: inflación mensual que descuenta el mercado entre "Tramo desde" y el vencimiento, despejada como
+            (1 + acum.) / (1 + acum. anterior). Para el primer par, el denominador es el CER ya publicado, no la
+            liquidación. Δ positivo: el mercado descuenta más inflación que el REM para esos meses.
           </p>
         </CardContent>
       </Card>
