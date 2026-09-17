@@ -32,7 +32,7 @@ export async function GET() {
     if (ultimo.error) throw ultimo.error
     const fechaRem: string | null = ultimo.data?.fecha_rem ?? null
 
-    const [filas, observado] = await Promise.all([
+    const [filas, observado, cer] = await Promise.all([
       fechaRem
         ? db.from("rem").select("tipo,fecha_ref,mediana").eq("variable", "ipc").eq("fecha_rem", fechaRem)
         : Promise.resolve({ data: [], error: null }),
@@ -40,9 +40,15 @@ export async function GET() {
       // la variación anual del REM contra lo que ya se publicó.
       db.from("series").select("fecha,valor").eq("serie", "ipc_mensual")
         .order("fecha", { ascending: false }).limit(14),
+      // CER diario, incluido el tramo ya publicado hacia adelante (el BCRA lo
+      // deja hasta el 15 del mes siguiente). Los breakevens lo necesitan para
+      // no contar como "implícita" inflación que ya está en el índice.
+      db.from("series").select("fecha,valor").eq("serie", "cer")
+        .order("fecha", { ascending: false }).limit(60),
     ])
     if (filas.error) throw filas.error
     if (observado.error) throw observado.error
+    if (cer.error) throw cer.error
 
     const mensual = (filas.data ?? [])
       .filter((r: any) => r.tipo === "mensual" && r.fecha_ref && r.mediana != null)
@@ -56,7 +62,11 @@ export async function GET() {
       .map((r: any) => ({ mes: mes(r.fecha), valor: Number(r.valor) }))
       .sort((a: any, b: any) => a.mes.localeCompare(b.mes))
 
-    return NextResponse.json({ configurado: true, fechaRem, mensual, anual, observado: obs })
+    const cerSerie = (cer.data ?? [])
+      .map((r: any) => ({ fecha: String(r.fecha).slice(0, 10), valor: Number(r.valor) }))
+      .sort((a: any, b: any) => a.fecha.localeCompare(b.fecha))
+
+    return NextResponse.json({ configurado: true, fechaRem, mensual, anual, observado: obs, cer: cerSerie })
   } catch (e) {
     return NextResponse.json({ configurado: false, error: String(e) }, { status: 500 })
   }

@@ -20,8 +20,8 @@ import {
   Bar, CartesianGrid, ComposedChart, Line, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis,
 } from "recharts"
 import {
-  REZAGO_CER_DIAS, claveMes, emparejar, fechaUtc, remEnVentana, sendaRem, tem, tramos,
-  type AnioPct, type BonoBe, type MesPct, type Tramo,
+  REZAGO_CER_DIAS, cerConocido, claveMes, emparejar, fechaUtc, remEnVentana, sendaRem, tem, tramos,
+  type AnioPct, type BonoBe, type MesPct, type PuntoCer, type Tramo,
 } from "@/lib/breakeven"
 
 export type RemData = {
@@ -30,6 +30,7 @@ export type RemData = {
   mensual?: MesPct[]
   anual?: AnioPct[]
   observado?: MesPct[]
+  cer?: PuntoCer[]
 }
 
 type Props = {
@@ -102,21 +103,25 @@ export function BreakevenCerFija({ fija, cer, cerFijados, fechaLiquidacion, rem 
     return sendaRem(rem.observado ?? [], rem.mensual ?? [], rem.anual ?? [], pares[pares.length - 1].vto.slice(0, 7))
   }, [rem, pares])
 
+  const conocido = useMemo(() => cerConocido(rem?.cer ?? [], liq), [rem, liq])
+
   const filas = useMemo<Fila[]>(() => {
-    const ts = tramos(pares, liq)
+    const ts = tramos(pares, liq, conocido)
     const liqCorrida = new Date(liq.getTime() - REZAGO_CER_DIAS * 86400000)
     return ts.map((t) => ({
       ...t,
-      rem: senda ? remEnVentana(senda, t.ventana.desde, t.ventana.hasta) : null,
+      rem: senda && !t.determinado ? remEnVentana(senda, t.ventana.desde, t.ventana.hasta) : null,
       remAcum: senda ? (remEnVentana(senda, liqCorrida, t.ventana.hasta)?.acum ?? null) : null,
     }))
-  }, [pares, liq, senda])
+  }, [pares, liq, conocido, senda])
+  const determinados = filas.filter((f) => f.determinado).map((f) => `${f.par.fija.symbol}/${f.par.cer.symbol}`)
 
   const sinPar = fija.filter((f) => !pares.some((p) => p.fija.symbol === f.symbol)).map((f) => f.symbol)
   const ultimoIpc = rem?.observado?.length ? rem.observado[rem.observado.length - 1] : null
   // El primer mes del REM que el INDEC todavía no publicó.
   const remProximo = (rem?.mensual ?? []).find((m) => !ultimoIpc || m.mes > ultimoIpc.mes) ?? null
-  const primero = filas[0], ultimo = filas[filas.length - 1]
+  const vivas = filas.filter((f) => !f.determinado)
+  const primero = vivas[0], ultimo = vivas[vivas.length - 1]
   const kpis = [
     { titulo: primero ? `Breakeven ${primero.par.fija.symbol}/${primero.par.cer.symbol}` : "Par más corto", valor: primero ? tem(primero.be) : null, nota: primero ? `TEM · vence ${fechaCorta(primero.par.vto)}` : "" },
     { titulo: ultimo ? `Breakeven ${ultimo.par.fija.symbol}/${ultimo.par.cer.symbol}` : "Par más largo", valor: ultimo ? tem(ultimo.be) : null, nota: ultimo ? `TEM · vence ${fechaCorta(ultimo.par.vto)}` : "" },
@@ -124,7 +129,7 @@ export function BreakevenCerFija({ fija, cer, cerFijados, fechaLiquidacion, rem 
     { titulo: "REM próximo dato", valor: remProximo ? remProximo.valor / 100 : null, nota: remProximo ? `mediana para ${mesLargo(remProximo.mes)}` : "sin dato" },
   ]
 
-  const datos = filas.map((f) => ({
+  const datos = filas.filter((f) => !f.determinado).map((f) => ({
     par: `${f.par.fija.symbol}/${f.par.cer.symbol}`,
     beTem: tem(f.be),
     remTem: f.remAcum != null ? Math.pow(1 + f.remAcum, 1 / (f.par.dur * 12)) - 1 : null,
@@ -133,7 +138,7 @@ export function BreakevenCerFija({ fija, cer, cerFijados, fechaLiquidacion, rem 
     meta: f,
   }))
 
-  if (!filas.length) {
+  if (!vivas.length) {
     return (
       <Card>
         <CardContent className="py-12 text-center text-sm text-muted-foreground">
@@ -161,7 +166,7 @@ export function BreakevenCerFija({ fija, cer, cerFijados, fechaLiquidacion, rem 
     if (!active || !f) return null
     return (
       <div style={estiloTooltip} className="px-3 py-2 space-y-0.5">
-        <div className="font-medium">{f.desde ? fechaCorta(f.desde.vto) : "Liquidación"} → {fechaCorta(f.par.vto)}</div>
+        <div className="font-medium">{fechaCorta(f.inicio.toISOString().slice(0, 10))} → {fechaCorta(f.par.vto)}</div>
         <div className="text-muted-foreground">Inflación de {mesesCubiertos(f.ventana.desde, f.ventana.hasta)}</div>
         <div className="font-medium tabular-nums">Implícita {pct(f.tramo)} en el tramo · {pct(f.tramoMensual)} mensual</div>
         {f.rem && <div className="tabular-nums">REM {pct(f.rem.acum)} · {pct(f.rem.mensual)} mensual</div>}
@@ -207,10 +212,13 @@ export function BreakevenCerFija({ fija, cer, cerFijados, fechaLiquidacion, rem 
         <CardHeader>
           <CardTitle className="text-lg">Breakevens por par</CardTitle>
           <CardDescription>
-            Fija y CER al mismo vencimiento. Liquidación {fechaCorta(fechaLiquidacion)}. La columna "Inflación de" corre la
-            ventana {REZAGO_CER_DIAS} días por el rezago del CER: el CER del 15/11 es el IPC de septiembre.
+            Fija y CER al mismo vencimiento. Liquidación {fechaCorta(fechaLiquidacion)}.
+            {conocido
+              ? <> CER publicado hasta el {fechaCorta(conocido.hasta.toISOString().slice(0, 10))} ({pct(conocido.factor - 1)} desde la liquidación): ese tramo es dato y no entra en la implícita.</>
+              : <> Sin serie CER: se asume que nada del CER está publicado.</>}
+            {" "}La columna "Inflación de" corre la ventana {REZAGO_CER_DIAS} días por el rezago del CER: el CER del 15/11 es el IPC de septiembre.
             {rem?.fechaRem && <> REM de {mesLargo(rem.fechaRem.slice(0, 7))}.</>}
-            {cerFijados.length > 0 && <> Afuera por CER ya fijado: {cerFijados.join(", ")}.</>}
+            {(cerFijados.length > 0 || determinados.length > 0) && <> Afuera por CER ya publicado: {[...cerFijados, ...determinados].join(", ")}.</>}
             {sinPar.length > 0 && <> Fijas sin par: {sinPar.join(", ")}.</>}
           </CardDescription>
         </CardHeader>
@@ -224,6 +232,7 @@ export function BreakevenCerFija({ fija, cer, cerFijados, fechaLiquidacion, rem 
                 <TableHead className="text-right">TIR real</TableHead>
                 <TableHead className="text-right">BE TEM</TableHead>
                 <TableHead className="text-right">BE acum.</TableHead>
+                <TableHead>Tramo desde</TableHead>
                 <TableHead className="text-right">Tramo</TableHead>
                 <TableHead className="text-right">Tramo TEM</TableHead>
                 <TableHead>Inflación de</TableHead>
@@ -232,7 +241,7 @@ export function BreakevenCerFija({ fija, cer, cerFijados, fechaLiquidacion, rem 
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filas.map((f) => {
+              {filas.filter((f) => !f.determinado).map((f) => {
                 const delta = f.rem && f.tramoMensual != null ? f.tramoMensual - f.rem.mensual : null
                 return (
                   <TableRow key={f.par.vto}>
@@ -244,7 +253,11 @@ export function BreakevenCerFija({ fija, cer, cerFijados, fechaLiquidacion, rem 
                     <TableCell className="text-right tabular-nums">{pct(f.par.cer.ytm)}</TableCell>
                     <TableCell className="text-right tabular-nums">{pct(tem(f.be))}</TableCell>
                     <TableCell className="text-right tabular-nums">{pct(f.acum, 1)}</TableCell>
-                    <TableCell className="text-right tabular-nums" title={`${f.desde ? f.desde.vto : fechaLiquidacion} → ${f.par.vto}`}>{pct(f.tramo)}</TableCell>
+                    <TableCell className="tabular-nums text-muted-foreground whitespace-nowrap">
+                      {fechaCorta(f.inicio.toISOString().slice(0, 10))}
+                      {!f.desde && conocido && f.inicio.getTime() === conocido.hasta.getTime() && <span className="ml-1 text-[10px] uppercase">cer</span>}
+                    </TableCell>
+                    <TableCell className="text-right tabular-nums">{pct(f.tramo)}</TableCell>
                     <TableCell className="text-right tabular-nums font-medium">{pct(f.tramoMensual)}</TableCell>
                     <TableCell className="whitespace-nowrap text-muted-foreground" title={`${diaMes(f.ventana.desde)} → ${diaMes(f.ventana.hasta)}`}>
                       {mesesCubiertos(f.ventana.desde, f.ventana.hasta)}
@@ -257,8 +270,9 @@ export function BreakevenCerFija({ fija, cer, cerFijados, fechaLiquidacion, rem 
             </TableBody>
           </Table>
           <p className="mt-3 text-xs text-muted-foreground">
-            Tramo: inflación implícita entre el vencimiento del par anterior y éste, (1 + acum.) / (1 + acum. anterior) − 1.
-            Δ positivo: el mercado descuenta más inflación que el REM para esos meses.
+            Tramo: inflación implícita entre "Tramo desde" y el vencimiento, (1 + acum.) / (1 + acum. anterior) − 1. Para el
+            primer par, el denominador es el CER ya publicado, no la liquidación. Δ positivo: el mercado descuenta más
+            inflación que el REM para esos meses.
           </p>
         </CardContent>
       </Card>

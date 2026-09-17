@@ -21,13 +21,21 @@
  * TIRs: cada tramo va del vencimiento del par anterior al de éste, y el
  * primero arranca en la liquidación.
  *
+ * EL CER YA PUBLICADO NO ES BREAKEVEN
+ * El BCRA publica el CER hacia adelante hasta el 15 del mes siguiente: a
+ * mediados de septiembre, con el IPC de agosto, ya se conoce el CER hasta el
+ * 15 de octubre. Un bono que vence el 30 de octubre capitaliza ese tramo
+ * conocido más quince días que no. La inflación implícita se despeja SÓLO del
+ * tramo que falta: acumulada del par ÷ (CER conocido / CER de liquidación).
+ * Sin esto el primer tramo mezcla dato con expectativa y sale aguado.
+ *
  * REZAGO DEL CER
  * El CER de un día refleja el IPC de unos 45 días antes: el índice de
  * septiembre se publica a mediados de octubre y rige del 16 de octubre al 15
  * de noviembre. Lo que capitaliza un CER que vence el 30 de noviembre no es la
  * inflación hasta noviembre sino hasta mediados de octubre. Por eso cada tramo
- * se etiqueta con la ventana corrida (liq − 45 → vto − 45), y el REM se
- * compara sobre esa ventana, no sobre el calendario del bono.
+ * se etiqueta con la ventana corrida 45 días, y el REM se compara sobre esa
+ * ventana, no sobre el calendario del bono.
  *
  * LOS CER CON `cer_fixed` NO ENTRAN
  * A diez hábiles del vencimiento el CER del pago final ya está publicado y el
@@ -76,43 +84,73 @@ export function emparejar(fija: BonoBe[], cer: BonoBe[]): Par[] {
     .sort((a, b) => a.vto.localeCompare(b.vto))
 }
 
+export type PuntoCer = { fecha: string; valor: number }
+
+/**
+ * Cuánto CER ya está publicado desde la liquidación: la última fecha con dato
+ * y el factor CER(última) / CER(liquidación). Si la serie no llega a la
+ * liquidación no hay tramo conocido y el factor es 1.
+ */
+export function cerConocido(serie: PuntoCer[], liquidacion: Date): { hasta: Date; factor: number } | null {
+  if (!serie.length) return null
+  const liq = liquidacion.toISOString().slice(0, 10)
+  const enLiq = serie.find((p) => p.fecha === liq)
+  const ultimo = serie[serie.length - 1]
+  if (!enLiq || ultimo.fecha <= liq) return null
+  return { hasta: fechaUtc(ultimo.fecha), factor: ultimo.valor / enLiq.valor }
+}
+
 export type Tramo = {
   par: Par
   be: number
   /** Inflación acumulada liq → vto que descuenta el par. */
   acum: number
-  /** Inflación del tramo: (1 + acum) / (1 + acum del par anterior) − 1. */
+  /** CER ya publicado que el par capitaliza sin incertidumbre, como factor. */
+  conocido: number
+  /** Inflación implícita del tramo, sólo sobre el CER que todavía no se conoce. */
   tramo: number
   tramoMensual: number | null
   /** Años del tramo. */
   anios: number
   desde: Par | null
+  /** Fecha desde la que el tramo es implícito: el vto del par anterior o el último CER publicado. */
+  inicio: Date
   /** Ventana de inflación que cubre el tramo, corrida por el rezago del CER. */
   ventana: { desde: Date; hasta: Date }
+  /** true si el CER del vencimiento ya está publicado: no hay nada que despejar. */
+  determinado: boolean
 }
 
-export function tramos(pares: Par[], liquidacion: Date): Tramo[] {
+export function tramos(pares: Par[], liquidacion: Date, cer: { hasta: Date; factor: number } | null): Tramo[] {
   const out: Tramo[] = []
-  let acumPrev = 0
-  let durPrev = 0
+  // Punto desde el que arranca cada tramo implícito: dónde está el CER y cuánto
+  // vale ahí respecto de la liquidación. Empieza en lo publicado y avanza con
+  // cada par.
+  let inicio = cer && cer.hasta > liquidacion ? cer.hasta : liquidacion
+  let nivel = cer && cer.hasta > liquidacion ? cer.factor : 1
   let parPrev: Par | null = null
   for (const p of pares) {
+    const vto = fechaUtc(p.vto)
     const be = breakeven(p.fija.ytm, p.cer.ytm)
     const acum = acumulada(be, p.dur)
-    const tramo = (1 + acum) / (1 + acumPrev) - 1
-    const anios = p.dur - durPrev
-    const d0 = parPrev ? fechaUtc(parPrev.vto) : liquidacion
+    const determinado = vto <= inicio
+    const anios = (vto.getTime() - inicio.getTime()) / DIA_MS / 365
+    const tramo = determinado ? 0 : (1 + acum) / nivel - 1
     out.push({
-      par: p, be, acum, tramo, anios,
-      tramoMensual: mensualDe(tramo, anios),
+      par: p, be, acum, conocido: nivel, tramo, anios,
+      tramoMensual: determinado ? null : mensualDe(tramo, anios),
       desde: parPrev,
+      inicio,
       ventana: {
-        desde: new Date(d0.getTime() - REZAGO_CER_DIAS * DIA_MS),
-        hasta: new Date(fechaUtc(p.vto).getTime() - REZAGO_CER_DIAS * DIA_MS),
+        desde: new Date(inicio.getTime() - REZAGO_CER_DIAS * DIA_MS),
+        hasta: new Date(vto.getTime() - REZAGO_CER_DIAS * DIA_MS),
       },
+      determinado,
     })
-    acumPrev = acum
-    durPrev = p.dur
+    if (!determinado) {
+      inicio = vto
+      nivel = 1 + acum
+    }
     parPrev = p
   }
   return out
