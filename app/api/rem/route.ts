@@ -42,9 +42,11 @@ export async function GET() {
         .order("fecha", { ascending: false }).limit(14),
       // CER diario, incluido el tramo ya publicado hacia adelante (el BCRA lo
       // deja hasta el 15 del mes siguiente). Los breakevens lo necesitan para
-      // no contar como "implícita" inflación que ya está en el índice.
+      // no contar como "implícita" inflación que ya está en el índice, y tiene
+      // que llegar hacia atrás hasta liq − 10 hábiles: 90 días alcanzan aun
+      // recién publicado el mes siguiente entero.
       db.from("series").select("fecha,valor").eq("serie", "cer")
-        .order("fecha", { ascending: false }).limit(60),
+        .order("fecha", { ascending: false }).limit(90),
     ])
     if (filas.error) throw filas.error
     if (observado.error) throw observado.error

@@ -35,6 +35,13 @@ const fetcher = async () => {
   const liq = new Date(`${hoyAr}T00:00:00Z`)
   do { liq.setUTCDate(liq.getUTCDate() + 1) } while (!esHabil(liq))
   const fechaLiquidacion = liq.toISOString().slice(0, 10)
+  // El CER que indexa un pago es el de 10 días hábiles antes (cerv2: minus_n_bdays).
+  const menosHabiles = (desde: Date, n: number) => {
+    const d = new Date(desde.getTime())
+    for (let k = 0; k < n; ) { d.setUTCDate(d.getUTCDate() - 1); if (esHabil(d)) k++ }
+    return d.toISOString().slice(0, 10)
+  }
+  const fechaCerAplicable = menosHabiles(liq, 10)
 
   const px = new Map((precios.data ?? []).map((p: any) => [p.symbol, p]))
   const fija: BonoBe[] = []
@@ -43,16 +50,17 @@ const fetcher = async () => {
   for (const i of (instrumentos.data ?? []) as any[]) {
     const p = px.get(i.symbol)
     if (!p || p.ytm == null || !(Number(p.duration_y) > 0) || !i.vencimiento) continue
-    const b: BonoBe = { symbol: i.symbol, vto: String(i.vencimiento).slice(0, 10), dur: Number(p.duration_y), ytm: Number(p.ytm) }
+    const vto = String(i.vencimiento).slice(0, 10)
+    const b: BonoBe = { symbol: i.symbol, vto, dur: Number(p.duration_y), ytm: Number(p.ytm) }
     if (i.instrument_type === "FIJA") fija.push(b)
     else if (p.cer_fixed) cerFijados.push(i.symbol)
-    else cer.push(b)
+    else cer.push({ ...b, cerFinal: menosHabiles(new Date(`${vto}T00:00:00Z`), 10) })
   }
   cer.sort((a, b) => a.dur - b.dur)
   fija.sort((a, b) => a.dur - b.dur)
 
   const vtosCer = new Set(cer.map((c) => c.vto))
-  return { fechaLiquidacion, fija, cer, cerFijados, pares: fija.filter((f) => vtosCer.has(f.vto)).length, rem: remRes }
+  return { fechaLiquidacion, fechaCerAplicable, fija, cer, cerFijados, pares: fija.filter((f) => vtosCer.has(f.vto)).length, rem: remRes }
 }
 
 export default function BreakevensPage() {
@@ -100,6 +108,7 @@ export default function BreakevensPage() {
                 cer={data.cer}
                 cerFijados={data.cerFijados}
                 fechaLiquidacion={data.fechaLiquidacion}
+                fechaCerAplicable={data.fechaCerAplicable}
                 rem={data.rem}
               />
             </TabsContent>

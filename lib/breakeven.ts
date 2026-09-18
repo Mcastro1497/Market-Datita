@@ -5,8 +5,8 @@
  * Un bono fija rinde una TIR nominal en pesos; un CER, una TIR real. La
  * inflación que iguala las dos es el breakeven: (1 + nominal) / (1 + real) − 1
  * en TEA, o llevado al plazo del bono, la inflación ACUMULADA que tiene que
- * haber entre la liquidación y el vencimiento para que dé lo mismo comprar uno
- * u otro. Por encima gana el CER, por debajo la fija.
+ * haber para que dé lo mismo comprar uno u otro. Por encima gana el CER, por
+ * debajo la fija.
  *
  * SÓLO PARES
  * Se compara únicamente cuando el Tesoro emitió una fija y un CER al MISMO
@@ -14,28 +14,38 @@
  * fija sin par mete el error de la interpolación adentro de un número que se
  * lee en centésimas de punto mensual; no vale la pena.
  *
- * TRAMOS
- * Si el par de octubre descuenta 2% acumulado y el de noviembre 4%, la
- * inflación implícita entre octubre y noviembre es 1,04 / 1,02 − 1 = 1,96%.
- * Es la misma cuenta que una forward de tasas, sobre acumulados en vez de
- * TIRs: cada tramo va del vencimiento del par anterior al de éste, y el
- * primero arranca en la liquidación.
+ * EL FACTOR DE INDEXACIÓN, EN TRES PEDAZOS
+ * Sigue la Nota Técnica 8/2024 del BCRA (Matarrelli y Pastore), apéndice. El
+ * CER que cobra el bono es el de 10 días hábiles antes del vencimiento, y el
+ * que ya tiene devengado a la liquidación es el de 10 hábiles antes de ella
+ * (es contra ése que cerv2 calcula la TIR real). Entre uno y otro:
  *
- * EL CER YA PUBLICADO NO ES BREAKEVEN
- * El BCRA publica el CER hacia adelante hasta el 15 del mes siguiente: a
- * mediados de septiembre, con el IPC de agosto, ya se conoce el CER hasta el
- * 15 de octubre. Un bono que vence el 30 de octubre capitaliza ese tramo
- * conocido más quince días que no. La inflación implícita se despeja SÓLO del
- * tramo que falta: acumulada del par ÷ (CER conocido / CER de liquidación).
- * Sin esto el primer tramo mezcla dato con expectativa y sale aguado.
+ *     CER(vto−10h) / CER(liq−10h)  =  γ · δ
+ *     γ = CER(último publicado) / CER(liq−10h)     ya publicado: es dato
+ *     δ = CER(vto−10h) / CER(último publicado)     lo que falta: la incógnita
  *
- * REZAGO DEL CER
- * El CER de un día refleja el IPC de unos 45 días antes: el índice de
- * septiembre se publica a mediados de octubre y rige del 16 de octubre al 15
- * de noviembre. Lo que capitaliza un CER que vence el 30 de noviembre no es la
- * inflación hasta noviembre sino hasta mediados de octubre. Por eso cada tramo
- * se etiqueta con la ventana corrida 45 días, y el REM se compara sobre esa
- * ventana, no sobre el calendario del bono.
+ * y Fisher se cumple sobre el factor entero: (1+i)^t = (1+ρ)^t · γ · δ, así que
+ * δ = (1 + acumulada del par) / γ. El BCRA publica el CER hacia adelante hasta
+ * el 15 del mes siguiente, así que γ suele cubrir un mes o más; sin descontarlo
+ * el primer par mezcla dato con expectativa y sale aguado.
+ *
+ * BLOQUES DE IPC
+ * El CER no capitaliza a tasa continua: el IPC del mes M rige del 16 de M+1 al
+ * 15 de M+2, a tasa diaria constante (1 + π_M)^(1/n). Entonces δ se descompone
+ * en los bloques que cruza, cada uno con la fracción de días que le toca, y la
+ * inflación implícita se despeja POR MES DE IPC y no por tramo de calendario.
+ * Como los vencimientos caen a fin de mes y el CER final es 10 hábiles antes,
+ * cada par cae casi exacto sobre un bloque: el par de noviembre despeja el IPC
+ * de septiembre, y así.
+ *
+ * BOOTSTRAP
+ * Los pares van en orden de CER final. Cada uno descuenta de su δ los bloques
+ * que ya fijó un par anterior, y lo que queda despeja el IPC de los bloques
+ * nuevos (uno solo, o el promedio de varios cuando no hay par intermedio). Un
+ * par cuyos bloques nuevos suman pocos días (S30O6 con el CER publicado hasta
+ * la víspera de su CER final) despeja un mes entero de un día de CER: se
+ * muestra como "escaso" y NO fija sus bloques, para no contagiar el ruido al
+ * par siguiente.
  *
  * LOS CER CON `cer_fixed` NO ENTRAN
  * A diez hábiles del vencimiento el CER del pago final ya está publicado y el
@@ -49,15 +59,16 @@ export type BonoBe = {
   symbol: string
   /** "YYYY-MM-DD" */
   vto: string
-  /** Duration de Macaulay en años. Para un bullet, años hasta el vencimiento. */
+  /** Duration de Macaulay en años. Para un bullet, años de la liquidación al vencimiento. */
   dur: number
   /** TEA. Nominal para fija, real para CER. */
   ytm: number
+  /** Sólo CER: fecha del CER que indexa el pago final, vto − 10 hábiles. "YYYY-MM-DD". */
+  cerFinal?: string
 }
 
-export type Par = { fija: BonoBe; cer: BonoBe; vto: string; dur: number }
+export type Par = { fija: BonoBe; cer: BonoBe; vto: string; dur: number; cerFinal: Date }
 
-export const REZAGO_CER_DIAS = 45
 const DIA_MS = 86400000
 
 export const tem = (tea: number) => Math.pow(1 + tea, 1 / 12) - 1
@@ -68,9 +79,8 @@ export const breakeven = (nominal: number, real: number) => (1 + nominal) / (1 +
 /** Breakeven llevado al plazo: inflación acumulada de la liquidación al vencimiento. */
 export const acumulada = (beTea: number, dur: number) => Math.pow(1 + beTea, dur) - 1
 
-/** Acumulado de un tramo → mensual equivalente, con el tramo medido en años. */
-export const mensualDe = (acum: number, anios: number) =>
-  anios > 0 ? Math.pow(1 + acum, 1 / (anios * 12)) - 1 : null
+export const fechaUtc = (iso: string) => new Date(`${iso}T00:00:00Z`)
+export const iso = (d: Date) => d.toISOString().slice(0, 10)
 
 /** Fijas y CER con el mismo vencimiento, ordenados por vencimiento. */
 export function emparejar(fija: BonoBe[], cer: BonoBe[]): Par[] {
@@ -78,85 +88,156 @@ export function emparejar(fija: BonoBe[], cer: BonoBe[]): Par[] {
   return fija
     .map((f) => {
       const c = cerPorVto.get(f.vto)
-      return c ? { fija: f, cer: c, vto: f.vto, dur: f.dur } : null
+      return c && c.cerFinal ? { fija: f, cer: c, vto: f.vto, dur: f.dur, cerFinal: fechaUtc(c.cerFinal) } : null
     })
     .filter((p): p is Par => p !== null)
-    .sort((a, b) => a.vto.localeCompare(b.vto))
+    .sort((a, b) => a.cerFinal.getTime() - b.cerFinal.getTime())
 }
 
 export type PuntoCer = { fecha: string; valor: number }
 
+export type CerConocido = {
+  /** CER de liq − 10h: el que ya está adentro de la TIR real. */
+  desde: Date
+  /** Último CER publicado. */
+  hasta: Date
+  /** γ = CER(hasta) / CER(desde). */
+  gamma: number
+}
+
 /**
- * Cuánto CER ya está publicado desde la liquidación: la última fecha con dato
- * y el factor CER(última) / CER(liquidación). Si la serie no llega a la
- * liquidación no hay tramo conocido y el factor es 1.
+ * γ: cuánto CER ya publicado hay desde el que devengó el bono a la liquidación
+ * (liq − 10h) hasta el último dato. Si la serie no llega a esa fecha no se
+ * puede separar dato de expectativa y se devuelve null.
  */
-export function cerConocido(serie: PuntoCer[], liquidacion: Date): { hasta: Date; factor: number } | null {
+export function cerConocido(serie: PuntoCer[], cerAplicable: Date): CerConocido | null {
   if (!serie.length) return null
-  const liq = liquidacion.toISOString().slice(0, 10)
-  const enLiq = serie.find((p) => p.fecha === liq)
+  const apl = iso(cerAplicable)
+  // La serie es diaria, pero por si falta un día se toma el último dato ≤ fecha.
+  let enApl: PuntoCer | null = null
+  for (const p of serie) if (p.fecha <= apl) enApl = p
   const ultimo = serie[serie.length - 1]
-  if (!enLiq || ultimo.fecha <= liq) return null
-  return { hasta: fechaUtc(ultimo.fecha), factor: ultimo.valor / enLiq.valor }
+  if (!enApl || ultimo.fecha <= apl) return null
+  return { desde: cerAplicable, hasta: fechaUtc(ultimo.fecha), gamma: ultimo.valor / enApl.valor }
 }
 
-export type Tramo = {
-  par: Par
-  be: number
-  /** Inflación acumulada liq → vto que descuenta el par. */
-  acum: number
-  /** CER ya publicado que el par capitaliza sin incertidumbre, como factor. */
-  conocido: number
-  /** Inflación implícita del tramo, sólo sobre el CER que todavía no se conoce. */
-  tramo: number
-  tramoMensual: number | null
-  /** Años del tramo. */
-  anios: number
-  desde: Par | null
-  /** Fecha desde la que el tramo es implícito: el vto del par anterior o el último CER publicado. */
-  inicio: Date
-  /** Ventana de inflación que cubre el tramo, corrida por el rezago del CER. */
-  ventana: { desde: Date; hasta: Date }
-  /** true si el CER del vencimiento ya está publicado: no hay nada que despejar. */
-  determinado: boolean
+// ── Bloques de IPC ────────────────────────────────────────────────────────────
+
+export type Bloque = {
+  /** Mes de IPC, "YYYY-MM". */
+  mes: string
+  /** Días del bloque (del 16 de M+1 al 15 de M+2). */
+  dias: number
 }
 
-export function tramos(pares: Par[], liquidacion: Date, cer: { hasta: Date; factor: number } | null): Tramo[] {
+/**
+ * Bloque al que pertenece el paso del CER hacia la fecha `d`: el IPC de M rige
+ * los días 16/M+1 … 15/M+2 inclusive.
+ */
+export function bloqueDe(d: Date): Bloque {
+  const y = d.getUTCFullYear(), m = d.getUTCMonth(), dia = d.getUTCDate()
+  // Mes cuyo día 16 abre el bloque (M+1).
+  const apertura = dia >= 16 ? new Date(Date.UTC(y, m, 1)) : new Date(Date.UTC(y, m - 1, 1))
+  const ipc = new Date(Date.UTC(apertura.getUTCFullYear(), apertura.getUTCMonth() - 1, 1))
+  const cierre = new Date(Date.UTC(apertura.getUTCFullYear(), apertura.getUTCMonth() + 1, 1))
+  return { mes: claveMes(ipc), dias: (cierre.getTime() - apertura.getTime()) / DIA_MS }
+}
+
+export type Tramo = Bloque & {
+  /** Días de este bloque que caen en (desde, hasta]. */
+  enTramo: number
+}
+
+/** Bloques que cruza el CER entre dos fechas: los pasos de desde+1 a hasta. */
+export function bloquesEntre(desde: Date, hasta: Date): Tramo[] {
   const out: Tramo[] = []
-  // Punto desde el que arranca cada tramo implícito: dónde está el CER y cuánto
-  // vale ahí respecto de la liquidación. Empieza en lo publicado y avanza con
-  // cada par.
-  let inicio = cer && cer.hasta > liquidacion ? cer.hasta : liquidacion
-  let nivel = cer && cer.hasta > liquidacion ? cer.factor : 1
-  let parPrev: Par | null = null
-  for (const p of pares) {
-    const vto = fechaUtc(p.vto)
-    const be = breakeven(p.fija.ytm, p.cer.ytm)
-    const acum = acumulada(be, p.dur)
-    const determinado = vto <= inicio
-    const anios = (vto.getTime() - inicio.getTime()) / DIA_MS / 365
-    const tramo = determinado ? 0 : (1 + acum) / nivel - 1
-    out.push({
-      par: p, be, acum, conocido: nivel, tramo, anios,
-      tramoMensual: determinado ? null : mensualDe(tramo, anios),
-      desde: parPrev,
-      inicio,
-      ventana: {
-        desde: new Date(inicio.getTime() - REZAGO_CER_DIAS * DIA_MS),
-        hasta: new Date(vto.getTime() - REZAGO_CER_DIAS * DIA_MS),
-      },
-      determinado,
-    })
-    if (!determinado) {
-      inicio = vto
-      nivel = 1 + acum
-    }
-    parPrev = p
+  const d = new Date(desde.getTime() + DIA_MS)
+  while (d <= hasta) {
+    const b = bloqueDe(d)
+    const last = out[out.length - 1]
+    if (last && last.mes === b.mes) last.enTramo++
+    else out.push({ ...b, enTramo: 1 })
+    d.setTime(d.getTime() + DIA_MS)
   }
   return out
 }
 
-export const fechaUtc = (iso: string) => new Date(`${iso}T00:00:00Z`)
+/** Meses de IPC equivalentes: Σ días / días del bloque. */
+export const mesesDe = (tramos: Tramo[]) => tramos.reduce((s, t) => s + t.enTramo / t.dias, 0)
+
+/** Factor de CER que producen `tramos` a las tasas de `pi` (por mes de IPC). */
+export function factorDe(tramos: Tramo[], pi: Map<string, number>): number | null {
+  let f = 1
+  for (const t of tramos) {
+    const v = pi.get(t.mes)
+    if (v == null) return null
+    f *= Math.pow(1 + v, t.enTramo / t.dias)
+  }
+  return f
+}
+
+// ── Bootstrap ─────────────────────────────────────────────────────────────────
+
+/**
+ * Menos días de CER que esto y el mes despejado es ruido de precio: el par no
+ * lo fija para los siguientes. También vale bloque por bloque: un par que cruza
+ * dic, ene, feb y un día de marzo promedia los cuatro, pero marzo queda libre
+ * para el par que lo cubra de verdad.
+ */
+export const DIAS_MINIMOS = 7
+
+/** Bloques con días suficientes para decir algo; si ninguno llega, todos. */
+export const significativos = (tramos: Tramo[]) => {
+  const sig = tramos.filter((t) => t.enTramo >= DIAS_MINIMOS)
+  return sig.length ? sig : tramos
+}
+
+export type Fila = {
+  par: Par
+  be: number
+  /** Inflación acumulada liq → vto que descuenta el par. */
+  acum: number
+  /** CER ya publicado desde liq − 10h, como factor. */
+  gamma: number
+  /** CER que falta, desde el último publicado hasta el CER final del par. */
+  delta: number
+  /** Bloques que cruza δ: fijados por un par anterior o nuevos de este par. */
+  fijados: Tramo[]
+  nuevos: Tramo[]
+  /** Días de CER que aportan los bloques nuevos. */
+  diasNuevos: number
+  /** IPC mensual implícito de los bloques nuevos (uno, o el promedio de varios). */
+  implicita: number | null
+  /** true si diasNuevos < DIAS_MINIMOS: se muestra pero no fija sus bloques. */
+  /* (los bloques nuevos con menos de DIAS_MINIMOS días tampoco se fijan, aunque la fila no sea escasa) */
+  escasa: boolean
+  /** true si el CER final ya está publicado: no hay nada que despejar. */
+  determinado: boolean
+}
+
+export function bootstrap(pares: Par[], cer: CerConocido | null): Fila[] {
+  const pi = new Map<string, number>()
+  const out: Fila[] = []
+  for (const p of pares) {
+    const be = breakeven(p.fija.ytm, p.cer.ytm)
+    const acum = acumulada(be, p.dur)
+    const gamma = cer?.gamma ?? 1
+    const delta = (1 + acum) / gamma
+    const inicio = cer?.hasta ?? cer?.desde ?? null
+    const determinado = inicio != null && p.cerFinal <= inicio
+    const tramos = inicio && !determinado ? bloquesEntre(inicio, p.cerFinal) : []
+    const fijados = tramos.filter((t) => pi.has(t.mes))
+    const nuevos = tramos.filter((t) => !pi.has(t.mes))
+    const diasNuevos = nuevos.reduce((s, t) => s + t.enTramo, 0)
+    const meses = mesesDe(nuevos)
+    const resto = delta / (factorDe(fijados, pi) ?? 1)
+    const implicita = meses > 0 && resto > 0 ? Math.pow(resto, 1 / meses) - 1 : null
+    const escasa = !determinado && diasNuevos < DIAS_MINIMOS
+    if (implicita != null && !escasa) for (const t of nuevos) if (t.enTramo >= DIAS_MINIMOS) pi.set(t.mes, implicita)
+    out.push({ par: p, be, acum, gamma, delta, fijados, nuevos, diasNuevos, implicita, escasa, determinado })
+  }
+  return out
+}
 
 // ── Senda del REM ─────────────────────────────────────────────────────────────
 
@@ -229,33 +310,12 @@ export const claveMes = (d: Date) =>
   `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`
 
 /**
- * Inflación que espera la senda en una ventana ya corrida por el rezago:
- * acumulada y mensual equivalente. Cada mes pesa por la fracción de sus días
- * que cae en la ventana. null si a la senda le falta algún mes.
+ * Lo que espera la senda para los mismos bloques, ponderado por la fracción de
+ * días de cada uno: mensual equivalente. null si a la senda le falta un mes.
  */
-export function remEnVentana(
-  senda: Map<string, number>,
-  desde: Date,
-  hasta: Date,
-): { acum: number; mensual: number } | null {
-  if (!(hasta > desde)) return null
-  let logAcum = 0
-  let meses = 0
-  const cur = new Date(Date.UTC(desde.getUTCFullYear(), desde.getUTCMonth(), 1))
-  while (cur < hasta) {
-    const fin = new Date(Date.UTC(cur.getUTCFullYear(), cur.getUTCMonth() + 1, 1))
-    const diasMes = (fin.getTime() - cur.getTime()) / DIA_MS
-    const ini = Math.max(cur.getTime(), desde.getTime())
-    const end = Math.min(fin.getTime(), hasta.getTime())
-    const enVentana = (end - ini) / DIA_MS
-    if (enVentana > 0) {
-      const v = senda.get(claveMes(cur))
-      if (v == null) return null
-      logAcum += Math.log(1 + v) * (enVentana / diasMes)
-      meses += enVentana / diasMes
-    }
-    cur.setTime(fin.getTime())
-  }
+export function remEnBloques(senda: Map<string, number>, tramos: Tramo[]): number | null {
+  const meses = mesesDe(tramos)
   if (!meses) return null
-  return { acum: Math.exp(logAcum) - 1, mensual: Math.exp(logAcum / meses) - 1 }
+  const f = factorDe(tramos, senda)
+  return f == null ? null : Math.pow(f, 1 / meses) - 1
 }
