@@ -101,15 +101,18 @@ export function BreakevenCerFija({ fija, cer, cerFijados, fechaLiquidacion, fech
     rem: senda && !f.determinado ? remEnBloques(senda, f.nuevos) : null,
     remDelta: senda && !f.determinado ? remEnBloques(senda, [...f.fijados, ...f.nuevos]) : null,
   })), [base, senda])
-  const determinados = filas.filter((f) => f.determinado).map((f) => `${f.par.fija.symbol}/${f.par.cer.symbol}`)
+  const nombre = (f: Fila) => `${f.par.fija.symbol}/${f.par.cer.symbol}`
+  const determinados = filas.filter((f) => f.determinado).map(nombre)
+  // Un par que sólo despeja uno o dos días de CER no dice nada: afuera de la tabla, avisado en la leyenda.
+  const escasos = filas.filter((f) => !f.determinado && f.escasa).map((f) => `${nombre(f)} (${f.diasNuevos} día${f.diasNuevos === 1 ? "" : "s"})`)
 
   const sinPar = fija.filter((f) => !pares.some((p) => p.fija.symbol === f.symbol)).map((f) => f.symbol)
   const ultimoIpc = rem?.observado?.length ? rem.observado[rem.observado.length - 1] : null
   // El primer mes del REM que el INDEC todavía no publicó.
   const remProximo = (rem?.mensual ?? []).find((m) => !ultimoIpc || m.mes > ultimoIpc.mes) ?? null
-  const vivas = filas.filter((f) => !f.determinado)
+  const vivas = filas.filter((f) => !f.determinado && !f.escasa)
   // El primer mes de IPC que el mercado despeja con datos suficientes.
-  const primero = vivas.find((f) => !f.escasa && f.implicita != null) ?? null
+  const primero = vivas.find((f) => f.implicita != null) ?? null
   const ultimo = vivas[vivas.length - 1] ?? null
   const kpis = [
     { titulo: primero ? `IPC implícito ${etiquetaBloques(primero.nuevos)}` : "IPC implícito", valor: primero?.implicita ?? null, nota: primero ? `${primero.par.fija.symbol}/${primero.par.cer.symbol} · ${diasDe(primero.nuevos)}` : "sin par con datos" },
@@ -124,7 +127,7 @@ export function BreakevenCerFija({ fija, cer, cerFijados, fechaLiquidacion, fech
     // δ mensualizado: el CER que falta, en TEM. Comparable con el REM de los mismos bloques.
     deltaTem: f.fijados.length + f.nuevos.length ? Math.pow(f.delta, 1 / [...f.fijados, ...f.nuevos].reduce((s, t) => s + t.enTramo / t.dias, 0)) - 1 : null,
     remDelta: f.remDelta,
-    implicita: f.escasa ? null : f.implicita,
+    implicita: f.implicita,
     remBloques: f.rem,
     meta: f,
   }))
@@ -160,7 +163,7 @@ export function BreakevenCerFija({ fija, cer, cerFijados, fechaLiquidacion, fech
       <div style={estiloTooltip} className="px-3 py-2 space-y-0.5">
         <div className="font-medium">IPC de {etiquetaBloques(f.nuevos)}</div>
         <div className="text-muted-foreground">{f.par.fija.symbol} / {f.par.cer.symbol} · {diasDe(f.nuevos)}</div>
-        <div className="font-medium tabular-nums">Implícita {pct(f.implicita)} mensual{f.escasa ? " (escasa)" : ""}</div>
+        <div className="font-medium tabular-nums">Implícita {pct(f.implicita)} mensual</div>
         {f.rem != null && <div className="tabular-nums">REM {pct(f.rem)} mensual</div>}
       </div>
     )
@@ -211,6 +214,7 @@ export function BreakevenCerFija({ fija, cer, cerFijados, fechaLiquidacion, fech
             {" "}El IPC de un mes rige el CER del 16 del mes siguiente al 15 del otro; cada par despeja los meses que cruza y que ningún par anterior fijó.
             {rem?.fechaRem && <> REM de {mesLargo(rem.fechaRem.slice(0, 7))}.</>}
             {(cerFijados.length > 0 || determinados.length > 0) && <> Afuera por CER ya publicado: {[...cerFijados, ...determinados].join(", ")}.</>}
+            {escasos.length > 0 && <> Afuera por despejar menos de {DIAS_MINIMOS} días de CER: {escasos.join(", ")}.</>}
             {sinPar.length > 0 && <> Fijas sin par: {sinPar.join(", ")}.</>}
           </CardDescription>
         </CardHeader>
@@ -235,10 +239,10 @@ export function BreakevenCerFija({ fija, cer, cerFijados, fechaLiquidacion, fech
             </TableHeader>
             <TableBody>
               {vivas.map((f) => {
-                const delta = f.rem != null && f.implicita != null && !f.escasa ? f.implicita - f.rem : null
+                const delta = f.rem != null && f.implicita != null ? f.implicita - f.rem : null
                 const yaFijados = f.fijados.length ? `descuenta ${etiquetaBloques(f.fijados)}, fijado por el par anterior` : ""
                 return (
-                  <TableRow key={f.par.vto} className={f.escasa ? "text-muted-foreground" : ""}>
+                  <TableRow key={f.par.vto}>
                     <TableCell className="font-medium whitespace-nowrap">
                       {f.par.fija.symbol} <span className="text-muted-foreground font-normal">/ {f.par.cer.symbol}</span>
                     </TableCell>
@@ -254,9 +258,9 @@ export function BreakevenCerFija({ fija, cer, cerFijados, fechaLiquidacion, fech
                       {f.fijados.length > 0 && <span className="ml-1 text-[10px] text-muted-foreground uppercase">+{f.fijados.length} fijado{f.fijados.length > 1 ? "s" : ""}</span>}
                     </TableCell>
                     <TableCell className="text-right tabular-nums text-muted-foreground whitespace-nowrap" title={diasDe(f.nuevos)}>
-                      {f.diasNuevos}{f.escasa && <span className="ml-1" title={`Menos de ${DIAS_MINIMOS} días de CER: ruido de precio. No fija sus meses.`}>⚠</span>}
+                      {f.diasNuevos}
                     </TableCell>
-                    <TableCell className={`text-right tabular-nums ${f.escasa ? "" : "font-medium"}`}>{pct(f.implicita)}</TableCell>
+                    <TableCell className="text-right tabular-nums font-medium">{pct(f.implicita)}</TableCell>
                     <TableCell className="text-right tabular-nums text-muted-foreground">{pct(f.rem)}</TableCell>
                     <TableCell className={`text-right tabular-nums ${delta == null ? "" : delta > 0 ? "text-destructive" : "text-success"}`}>{pb(delta)}</TableCell>
                   </TableRow>
@@ -267,8 +271,8 @@ export function BreakevenCerFija({ fija, cer, cerFijados, fechaLiquidacion, fech
           <p className="mt-3 text-xs text-muted-foreground">
             CER falta: (1 + BE acum.) ÷ CER publicado, la variación de CER entre el último dato y el CER final del par
             (Nota Técnica BCRA 8/2024). Implícita: IPC mensual de los meses "IPC de" que hace que ese CER cierre, una vez
-            descontados los meses que ya fijó un par anterior. Con menos de {DIAS_MINIMOS} días de CER (⚠) el número es
-            ruido de precio y no se propaga. Δ positivo: el mercado descuenta más inflación que el REM para esos meses.
+            descontados los meses que ya fijó un par anterior. Δ positivo: el mercado descuenta más inflación que el REM
+            para esos meses.
           </p>
         </CardContent>
       </Card>
