@@ -11,7 +11,12 @@ import type { DlkWithDetails } from "@/lib/types"
 import { Loader2, RefreshCw, Link2 } from "lucide-react"
 import useSWR from "swr"
 
-const FX_SYMBOL = "UST" // tipo de cambio oficial guardado en `prices`
+// El mayorista vive en dos filas de `prices`: UST_MAE la escribe fx_relay.py
+// cada minuto desde una máquina con IP residencial (MAE bloquea datacenters), y
+// UST la deja dlk.py cada vez que valuar_loop recarga la referencia, o sea cada
+// 30 minutos. Se piden las dos y gana la más nueva: así el encabezado sigue al
+// relay, y si el relay se cae no se congela, cae al valor de la nube.
+const FX_SYMBOLS = ["UST_MAE", "UST"]
 
 const fetcher = async () => {
   const supabase = createClient()
@@ -41,7 +46,7 @@ const fetcher = async () => {
     supabase.from("prices").select("*"),
     supabase.from("prices")
       .select("last, ts, apertura, maximo, minimo, closing_price, change_pct, monto_operado")
-      .eq("symbol", FX_SYMBOL).maybeSingle(),
+      .in("symbol", FX_SYMBOLS),
   ])
 
   if (instrumentsResult.error) throw instrumentsResult.error
@@ -50,9 +55,8 @@ const fetcher = async () => {
 
   const instrumentsData = instrumentsResult.data || []
   const pricesData = pricesResult.data || []
-  // El cliente de Supabase no tiene tipos generados, así que maybeSingle()
-  // devuelve `never` y cualquier acceso a un campo no compila. Se tipa la fila
-  // acá en vez de castear en cada uso.
+  // El cliente de Supabase no tiene tipos generados y cualquier acceso a un
+  // campo no compila. Se tipa la fila acá en vez de castear en cada uso.
   type FilaFx = {
     last: number | null
     ts: string | null
@@ -63,7 +67,9 @@ const fetcher = async () => {
     change_pct: number | null
     monto_operado: number | null
   }
-  const fxRow = (fxResult.data ?? null) as FilaFx | null
+  const fxFilas = ((fxResult.data ?? []) as FilaFx[]).filter((f) => f.last != null && f.ts)
+  const fxRow =
+    fxFilas.sort((a, b) => new Date(b.ts!).getTime() - new Date(a.ts!).getTime())[0] ?? null
 
   const fxOficial = fxRow?.last ? Number(fxRow.last) : null
   const fxTs = fxRow?.ts ?? null
