@@ -175,6 +175,8 @@ export type SoberanoWithDetails = {
     tem_proy:      number | null
     tem_ponderada: number | null
     tem_margen:    number | null
+    /** Spread sobre TAMAR al que cotiza HOY (TNA decimal). No es margen_ref, el de emisión. */
+    margen_mercado: number | null
     tem_total:     number | null
     vpv:           number | null
     paridad:       number | null

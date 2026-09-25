@@ -225,6 +225,11 @@ export function SoberanosArsTamarTable({ flows, activeTab }: SoberanosArsTamarTa
                 </Button>
               </TableHead>
               <TableHead className="text-center">
+                <Button variant="ghost" onClick={() => handleSort("lastPrice.margen_mercado")} className="h-auto p-0 font-semibold">
+                  Margen mkt. <ArrowUpDown className="ml-2 h-4 w-4" />
+                </Button>
+              </TableHead>
+              <TableHead className="text-center">
                 <Button variant="ghost" onClick={() => handleSort("lastPrice.ytm")} className="h-auto p-0 font-semibold">
                   TIR <ArrowUpDown className="ml-2 h-4 w-4" />
                 </Button>
@@ -286,6 +291,11 @@ export function SoberanosArsTamarTable({ flows, activeTab }: SoberanosArsTamarTa
                   >
                     {formatPercentage(flow.lastPrice?.change)}
                   </span>
+                </TableCell>
+                <TableCell className="text-center font-medium">
+                  {flow.lastPrice?.margen_mercado == null
+                    ? "—"
+                    : `TAMAR ${flow.lastPrice.margen_mercado >= 0 ? "+" : ""}${(flow.lastPrice.margen_mercado * 100).toFixed(2)}%`}
                 </TableCell>
                 <TableCell className="text-center">{formatPercentage(flow.lastPrice?.ytm)}</TableCell>
                 <TableCell className="text-center">{formatDuration(flow.lastPrice?.duration_y)}</TableCell>
