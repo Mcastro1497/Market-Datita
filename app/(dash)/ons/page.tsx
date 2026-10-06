@@ -197,7 +197,9 @@ export default function ONSDashboard() {
     </div>
   )
 
-  if (error) return (
+  // Un refresco fallido con datos ya cargados no tira la pantalla: SWR conserva
+  // `data`, y volver a montar todo borraba la búsqueda, el orden y el agrupado.
+  if (error && !data) return (
     <div className="min-h-screen flex items-center justify-center">
       <div className="text-center">
         <p className="text-destructive mb-4">Error al cargar los datos</p>
