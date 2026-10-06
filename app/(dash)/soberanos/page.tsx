@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useMemo } from "react"
 import { SoberanosDetailsFilters } from "@/components/soberanos-details-filters"
 import { SoberanosDetailsTable } from "@/components/soberanos-details-table"
 import { CurvaForward } from "@/components/curva-forward"
@@ -103,8 +103,17 @@ const fetcher = async () => {
   return { flowsWithDetails, emisores: uniqueEmisores, legislaciones: uniqueLegislaciones, jurisdicciones: uniqueJurisdicciones }
 }
 
+type DetailsFilters = {
+    legislacion?: string
+    jurisdiccionPago?: string
+    emisores?: string[]
+    fechaVencimientoHasta?: Date
+  }
+
 export default function SoberanosDashboard() {
-  const [filteredDetailsData, setFilteredDetailsData] = useState<SoberanoWithDetails[]>([])
+  // Se guardan los FILTROS, no las filas filtradas: si se guardaran las filas,
+  // cada refresco de SWR (30 s) las pisaría con el universo entero.
+  const [detailsFilters, setDetailsFilters] = useState<DetailsFilters>({})
 
   const { data, error, isLoading, mutate } = useSWR("soberanos-data", fetcher, {
     refreshInterval: 30000,
@@ -112,17 +121,9 @@ export default function SoberanosDashboard() {
     revalidateOnReconnect: true,
   })
 
-  useEffect(() => {
-    if (data?.flowsWithDetails) setFilteredDetailsData(data.flowsWithDetails)
-  }, [data])
-
-  const handleDetailsFiltersChange = (filters: {
-    legislacion?: string
-    jurisdiccionPago?: string
-    emisores?: string[]
-    fechaVencimientoHasta?: Date
-  }) => {
-    if (!data?.flowsWithDetails) return
+  const filteredDetailsData = useMemo(() => {
+    const filters = detailsFilters
+    if (!data?.flowsWithDetails) return []
     let filtered = [...data.flowsWithDetails]
     if (filters.legislacion) filtered = filtered.filter((f) => f.details?.legislacion === filters.legislacion)
     if (filters.jurisdiccionPago) filtered = filtered.filter((f) => f.details?.jurisdiccion_pago === filters.jurisdiccionPago)
@@ -133,8 +134,10 @@ export default function SoberanosDashboard() {
         return new Date(f.details.vencimiento) <= filters.fechaVencimientoHasta!
       })
     }
-    setFilteredDetailsData(filtered)
-  }
+    return filtered
+  }, [data, detailsFilters])
+
+  const handleDetailsFiltersChange = (filters: DetailsFilters) => setDetailsFilters(filters)
 
   if (isLoading) return (
     <div className="min-h-screen flex items-center justify-center">

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useMemo } from "react"
 import { SoberanosArsDetailsFilters } from "@/components/soberanos-ars-details-filters"
 import { SoberanosArsDetailsTable } from "@/components/soberanos-ars-details-table"
 import { CurvaForward } from "@/components/curva-forward"
@@ -149,8 +149,12 @@ const fetcher = async () => {
   return { fechaLiquidacion, flowsWithDetails, emisores: uniqueEmisores, tipos: uniqueTipos, monedas: uniqueMonedas }
 }
 
+type DetailsFilters = { moneda?: string; emisores?: string[]; fechaVencimientoHasta?: Date }
+
 export default function SoberanosArsDashboard() {
-  const [filteredDetailsData, setFilteredDetailsData] = useState<SoberanoWithDetails[]>([])
+  // Se guardan los FILTROS, no las filas filtradas: si se guardaran las filas,
+  // cada refresco de SWR (30 s) las pisaría con el universo entero.
+  const [detailsFilters, setDetailsFilters] = useState<DetailsFilters>({})
   const [activeTab, setActiveTab] = useState<string>("CER")
 
   const { data, error, isLoading, mutate } = useSWR("soberanos-ars-data", fetcher, {
@@ -159,14 +163,9 @@ export default function SoberanosArsDashboard() {
     revalidateOnReconnect: true,
   })
 
-  useEffect(() => {
-    if (data?.flowsWithDetails) {
-      setFilteredDetailsData(data.flowsWithDetails.filter((f) => f.details?.instrument_type === activeTab))
-    }
-  }, [data, activeTab])
-
-  const handleDetailsFiltersChange = (filters: { moneda?: string; emisores?: string[]; fechaVencimientoHasta?: Date }) => {
-    if (!data?.flowsWithDetails) return
+  const filteredDetailsData = useMemo(() => {
+    const filters = detailsFilters
+    if (!data?.flowsWithDetails) return []
     let filtered = data.flowsWithDetails.filter((f) => f.details?.instrument_type === activeTab)
     if (filters.moneda) filtered = filtered.filter((f) => f.details?.moneda_denom === filters.moneda)
     if (filters.emisores?.length) filtered = filtered.filter((f) => filters.emisores!.includes(f.emisor))
@@ -176,8 +175,10 @@ export default function SoberanosArsDashboard() {
         return new Date(f.details.vencimiento) <= filters.fechaVencimientoHasta!
       })
     }
-    setFilteredDetailsData(filtered)
-  }
+    return filtered
+  }, [data, detailsFilters, activeTab])
+
+  const handleDetailsFiltersChange = (filters: DetailsFilters) => setDetailsFilters(filters)
 
   if (isLoading) return (
     <div className="min-h-screen flex items-center justify-center">

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useMemo } from "react"
 import { ONSFilters } from "@/components/ons-filters"
 import { ONSDetailsFilters } from "@/components/ons-details-filters"
 import { ONSTable } from "@/components/ons-table"
@@ -136,9 +136,20 @@ const fetcher = async () => {
   }
 }
 
+type FlowsFilters = { emisores?: string[]; ticker?: string; fechaDesde?: Date; fechaHasta?: Date }
+type DetailsFilters = {
+  ajuste?: string
+  legislacion?: string
+  jurisdiccionPago?: string
+  emisores?: string[]
+  fechaVencimientoHasta?: Date
+}
+
 export default function ONSDashboard() {
-  const [filteredData, setFilteredData] = useState<any[]>([])
-  const [filteredDetailsData, setFilteredDetailsData] = useState<ONWithDetails[]>([])
+  // Se guardan los FILTROS, no las filas filtradas: si se guardaran las filas,
+  // cada refresco de SWR (30 s) las pisaría con el universo entero.
+  const [flowsFilters, setFlowsFilters] = useState<FlowsFilters>({})
+  const [detailsFilters, setDetailsFilters] = useState<DetailsFilters>({})
 
   const { data, error, isLoading, mutate } = useSWR("ons-data", fetcher, {
     refreshInterval: 30000,
@@ -146,34 +157,20 @@ export default function ONSDashboard() {
     revalidateOnReconnect: true,
   })
 
-  useEffect(() => {
-    if (data?.flowsData) setFilteredData(data.flowsData)
-    if (data?.flowsWithDetails) setFilteredDetailsData(data.flowsWithDetails)
-  }, [data])
-
-  const handleFiltersChange = (filters: {
-    emisores?: string[]
-    ticker?: string
-    fechaDesde?: Date
-    fechaHasta?: Date
-  }) => {
-    if (!data?.flowsData) return
+  const filteredData = useMemo(() => {
+    const filters = flowsFilters
+    if (!data?.flowsData) return []
     let filtered = [...data.flowsData]
     if (filters.emisores?.length) filtered = filtered.filter((f) => filters.emisores!.includes(f.emisor))
     if (filters.ticker) filtered = filtered.filter((f) => f.ticker.toLowerCase().includes(filters.ticker!.toLowerCase()))
     if (filters.fechaDesde) filtered = filtered.filter((f) => new Date(f.fecha_pago) >= filters.fechaDesde!)
     if (filters.fechaHasta) filtered = filtered.filter((f) => new Date(f.fecha_pago) <= filters.fechaHasta!)
-    setFilteredData(filtered)
-  }
+    return filtered
+  }, [data, flowsFilters])
 
-  const handleDetailsFiltersChange = (filters: {
-    ajuste?: string
-    legislacion?: string
-    jurisdiccionPago?: string
-    emisores?: string[]
-    fechaVencimientoHasta?: Date
-  }) => {
-    if (!data?.flowsWithDetails) return
+  const filteredDetailsData = useMemo(() => {
+    const filters = detailsFilters
+    if (!data?.flowsWithDetails) return []
     let filtered = [...data.flowsWithDetails]
     if (filters.ajuste) filtered = filtered.filter((f) => f.details?.ajuste === filters.ajuste)
     if (filters.legislacion) filtered = filtered.filter((f) => f.details?.legislacion === filters.legislacion)
@@ -185,8 +182,11 @@ export default function ONSDashboard() {
         return new Date(f.details.vencimiento) <= filters.fechaVencimientoHasta!
       })
     }
-    setFilteredDetailsData(filtered)
-  }
+    return filtered
+  }, [data, detailsFilters])
+
+  const handleFiltersChange = (filters: FlowsFilters) => setFlowsFilters(filters)
+  const handleDetailsFiltersChange = (filters: DetailsFilters) => setDetailsFilters(filters)
 
   if (isLoading) return (
     <div className="min-h-screen flex items-center justify-center">

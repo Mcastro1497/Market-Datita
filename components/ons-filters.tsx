@@ -34,10 +34,19 @@ export function ONSFilters({ emisores, onFiltersChange }: FiltersProps) {
 
   const safeEmisores = emisores || []
 
+  // Los filtros guardados se muestran Y se aplican al volver a la página: antes
+  // quedaban seleccionados arriba pero la tabla venía sin filtrar.
+  const [restaurados, setRestaurados] = useState(false)
+  useEffect(() => {
+    if (restaurados) handleApplyFilters()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restaurados])
+
   useEffect(() => {
     try {
       const raw = localStorage.getItem(STORAGE_KEY)
       if (!raw) return
+      setRestaurados(true)
       const parsed = JSON.parse(raw) as {
         emisores?: string[]
         ticker?: string
