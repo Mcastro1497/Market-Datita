@@ -13,6 +13,8 @@ import { es } from "date-fns/locale"
 
 interface FiltersProps {
   emisores: string[]
+  /** Clave de localStorage: cada página guarda sus filtros por separado. */
+  storageKey?: string
   onFiltersChange: (filters: {
     emisores?: string[]
     ticker?: string
@@ -21,9 +23,8 @@ interface FiltersProps {
   }) => void
 }
 
-const STORAGE_KEY = "onsFilters" // Added storage key for persistence
-
-export function ONSFilters({ emisores, onFiltersChange }: FiltersProps) {
+export function ONSFilters({ emisores, onFiltersChange, storageKey = "onsFilters" }: FiltersProps) {
+  const STORAGE_KEY = storageKey
   const [selectedEmisores, setSelectedEmisores] = useState<string[]>([])
   const [emisorSearch, setEmisorSearch] = useState("")
   const [ticker, setTicker] = useState<string>("")

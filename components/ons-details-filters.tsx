@@ -22,15 +22,20 @@ interface FiltersShape {
 
 interface DetailsFiltersProps {
   ajustes: string[]
+  /** Clave de localStorage: cada página guarda sus filtros por separado. */
+  storageKey?: string
+  unidad?: string
   legislaciones: string[]
   jurisdicciones: string[]
   emisores: string[]
   onFiltersChange: (filters: FiltersShape) => void
 }
 
-const STORAGE_KEY = "onsDetailsFilters"
-
-export function ONSDetailsFilters({ ajustes, legislaciones, jurisdicciones, emisores, onFiltersChange }: DetailsFiltersProps) {
+export function ONSDetailsFilters({
+  ajustes, legislaciones, jurisdicciones, emisores, onFiltersChange,
+  storageKey = "onsDetailsFilters", unidad = "ONs",
+}: DetailsFiltersProps) {
+  const STORAGE_KEY = storageKey
   const [ajuste, setAjuste] = useState<string>("all")
   const [legislacion, setLegislacion] = useState<string>("all")
   const [jurisdiccionPago, setJurisdiccionPago] = useState<string>("all")
@@ -176,7 +181,7 @@ export function ONSDetailsFilters({ ajustes, legislaciones, jurisdicciones, emis
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
           <Filter className="h-5 w-5" />
-          Filtros - Detalles ONs
+          Filtros - Detalles {unidad}
         </CardTitle>
       </CardHeader>
       <CardContent>

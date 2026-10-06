@@ -12,12 +12,13 @@ import { es } from "date-fns/locale"
 
 interface ONSTableProps {
   data: ONFlow[]
+  unidad?: string
 }
 
 type SortField = keyof ONFlow
 type SortDirection = "asc" | "desc"
 
-export function ONSTable({ data }: ONSTableProps) {
+export function ONSTable({ data, unidad = "ONs" }: ONSTableProps) {
   const [sortField, setSortField] = useState<SortField>("fecha_pago")
   const [sortDirection, setSortDirection] = useState<SortDirection>("asc")
 
@@ -131,7 +132,7 @@ export function ONSTable({ data }: ONSTableProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Flujos de ONs ({data.length} registros)</CardTitle>
+        <CardTitle>Flujos de {unidad} ({data.length} registros)</CardTitle>
       </CardHeader>
       <CardContent>
         <div

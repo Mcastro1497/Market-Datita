@@ -6,9 +6,10 @@ import type { ONFlow } from "@/lib/types"
 
 interface ONSMetricsProps {
   data: ONFlow[]
+  unidad?: string
 }
 
-export function ONSMetrics({ data }: ONSMetricsProps) {
+export function ONSMetrics({ data, unidad = "ONs" }: ONSMetricsProps) {
   const uniqueEmisores = new Set(data.map((flow) => flow.emisor)).size
   const uniqueONs = new Set(data.map((flow) => flow.ticker)).size
 
@@ -26,7 +27,7 @@ export function ONSMetrics({ data }: ONSMetricsProps) {
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle className="text-sm font-medium">ONs Únicas</CardTitle>
+          <CardTitle className="text-sm font-medium">{unidad.charAt(0).toUpperCase() + unidad.slice(1)} únicas</CardTitle>
           <Hash className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent>

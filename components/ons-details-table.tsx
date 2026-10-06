@@ -15,6 +15,7 @@ type GroupBy = "none" | "emisor" | "year"
 
 interface ONDetailsTableProps {
   flows: ONWithDetails[]
+  unidad?: string
 }
 
 // === FIX FECHAS: tratar "YYYY-MM-DD" como fecha LOCAL (evita -1 día por TZ)
@@ -51,7 +52,7 @@ const formatDuration = (value: number | null | undefined) => {
   return `${value.toFixed(2)} años`
 }
 
-export function ONDetailsTable({ flows }: ONDetailsTableProps) {
+export function ONDetailsTable({ flows, unidad = "ONs" }: ONDetailsTableProps) {
   // Por defecto los bonos se listan por vencimiento ascendente: es el orden en
   // que se lee una curva, y deja arriba lo que vence primero.
   const [sortField, setSortField] = useState<string>("details.vencimiento")
@@ -285,7 +286,7 @@ export function ONDetailsTable({ flows }: ONDetailsTableProps) {
       )}
 
       <div className="text-xs text-muted-foreground text-center">
-        Tocá una fila para ver el detalle • {filteredAndSortedFlows.length} de {flows.length} ONs
+        Tocá una fila para ver el detalle • {filteredAndSortedFlows.length} de {flows.length} {unidad}
         {groupBy !== "none" ? ` · ${groups.length} grupos` : ""}
       </div>
 

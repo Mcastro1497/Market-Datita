@@ -16,6 +16,7 @@ import {
   CandlestickChart,
   Split,
   Scale,
+  MapPin,
 } from "lucide-react"
 import {
   Sidebar,
@@ -35,6 +36,7 @@ const nav = [
   { href: "/ons", label: "Obligaciones Negociables", icon: TrendingUp },
   { href: "/soberanos", label: "Soberanos Hard Dollar", icon: DollarSign },
   { href: "/soberanos-ars", label: "Soberanos ARS", icon: PiggyBank },
+  { href: "/provinciales", label: "Provinciales", icon: MapPin },
   { href: "/dlk", label: "Dólar Linked", icon: Link2 },
   { href: "/duales", label: "Duales", icon: Split },
   { href: "/breakevens", label: "Breakevens", icon: Scale },
