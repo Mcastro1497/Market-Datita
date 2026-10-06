@@ -13,6 +13,7 @@ import { format } from "date-fns"
 import { es } from "date-fns/locale"
 
 interface FiltersShape {
+  ajuste?: string
   legislacion?: string
   jurisdiccionPago?: string
   emisores?: string[]
@@ -20,6 +21,7 @@ interface FiltersShape {
 }
 
 interface DetailsFiltersProps {
+  ajustes: string[]
   legislaciones: string[]
   jurisdicciones: string[]
   emisores: string[]
@@ -28,7 +30,8 @@ interface DetailsFiltersProps {
 
 const STORAGE_KEY = "onsDetailsFilters"
 
-export function ONSDetailsFilters({ legislaciones, jurisdicciones, emisores, onFiltersChange }: DetailsFiltersProps) {
+export function ONSDetailsFilters({ ajustes, legislaciones, jurisdicciones, emisores, onFiltersChange }: DetailsFiltersProps) {
+  const [ajuste, setAjuste] = useState<string>("all")
   const [legislacion, setLegislacion] = useState<string>("all")
   const [jurisdiccionPago, setJurisdiccionPago] = useState<string>("all")
   const [selectedEmisores, setSelectedEmisores] = useState<string[]>([])
@@ -42,12 +45,14 @@ export function ONSDetailsFilters({ legislaciones, jurisdicciones, emisores, onF
       const raw = localStorage.getItem(STORAGE_KEY)
       if (!raw) return
       const parsed = JSON.parse(raw) as {
+        ajuste?: string
         legislacion?: string
         jurisdiccionPago?: string
         emisores?: string[]
         fechaVencimientoHasta?: string // guardado como ISO
       }
 
+      setAjuste(parsed.ajuste ?? "all")
       setLegislacion(parsed.legislacion ?? "all")
       setJurisdiccionPago(parsed.jurisdiccionPago ?? "all")
       setSelectedEmisores(parsed.emisores ?? [])
@@ -73,6 +78,7 @@ export function ONSDetailsFilters({ legislaciones, jurisdicciones, emisores, onF
   useEffect(() => {
     try {
       const payload = {
+        ajuste,
         legislacion,
         jurisdiccionPago,
         emisores: selectedEmisores,
@@ -82,7 +88,7 @@ export function ONSDetailsFilters({ legislaciones, jurisdicciones, emisores, onF
     } catch {
       // sin storage disponible: no pasa nada
     }
-  }, [legislacion, jurisdiccionPago, selectedEmisores, fechaVencimientoHasta])
+  }, [ajuste, legislacion, jurisdiccionPago, selectedEmisores, fechaVencimientoHasta])
 
   const filteredEmisores = useMemo(
     () => emisores.filter((em) => em.toLowerCase().includes(emisorSearch.toLowerCase())),
@@ -134,6 +140,7 @@ export function ONSDetailsFilters({ legislaciones, jurisdicciones, emisores, onF
 
   const handleApplyFilters = () => {
     onFiltersChange({
+      ajuste: ajuste === "all" ? undefined : ajuste,
       legislacion: legislacion === "all" ? undefined : legislacion,
       jurisdiccionPago: jurisdiccionPago === "all" ? undefined : jurisdiccionPago,
       emisores: selectedEmisores.length > 0 ? selectedEmisores : undefined,
@@ -142,6 +149,7 @@ export function ONSDetailsFilters({ legislaciones, jurisdicciones, emisores, onF
   }
 
   const handleClearFilters = () => {
+    setAjuste("all")
     setLegislacion("all")
     setJurisdiccionPago("all")
     setSelectedEmisores([])
@@ -163,7 +171,24 @@ export function ONSDetailsFilters({ legislaciones, jurisdicciones, emisores, onF
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+          <div>
+            <label className="text-sm font-medium mb-2 block">Ajuste</label>
+            <Select value={ajuste} onValueChange={setAjuste}>
+              <SelectTrigger>
+                <SelectValue placeholder="Todos los ajustes" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos los ajustes</SelectItem>
+                {ajustes.map((aj) => (
+                  <SelectItem key={aj} value={aj}>
+                    {aj}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+
           <div>
             <label className="text-sm font-medium mb-2 block">Legislación</label>
             <Select value={legislacion} onValueChange={setLegislacion}>

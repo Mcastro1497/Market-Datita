@@ -328,6 +328,13 @@ function ONDetailDialog({ flow, onClose }: { flow: ONWithDetails | null; onClose
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-8 gap-y-2 text-sm">
               <Field label="ISIN" value={d?.isin} />
               <Field label="Moneda de pago" value={d?.moneda_pago} />
+              <Field label="Ajuste" value={d?.ajuste} />
+              <Field
+                label="Referencia"
+                value={d?.referencias
+                  ? d.margen_ref ? `${d.referencias} + ${formatPercentage(d.margen_ref)}` : d.referencias
+                  : "—"}
+              />
               <Field label="Emisión" value={formatDate(d?.emision)} />
               <Field label="Vencimiento" value={formatDate(d?.vencimiento)} />
               <Field label="Legislación" value={d?.legislacion} />

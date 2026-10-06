@@ -56,6 +56,15 @@ const fetcher = async () => {
   const instrumentsMap = new Map(instrumentsData.map((i: any) => [i.symbol, i]))
   const pricesMap = new Map(pricesData.map((p: any) => [p.symbol, p]))
 
+  // Cómo se ajusta el capital: es lo que separa una ON de otra al compararlas.
+  // Sin ajuste, decide la moneda en que paga.
+  const AJUSTE_POR_REFERENCIA: Record<string, string> = {
+    A3500: "Dólar linked", Tamar: "TAMAR", CER: "CER", Badlar: "BADLAR", Dual: "Dual",
+  }
+  const ajusteDe = (instr: any): string =>
+    AJUSTE_POR_REFERENCIA[instr?.referencias] ??
+    (instr?.moneda_pago === "USD" ? "Hard dollar" : "Tasa fija")
+
   // Adaptar flows al formato ONWithDetails esperado por los componentes
   const adaptFlow = (flow: any): any => {
     const instr = instrumentsMap.get(flow.symbol) as any
@@ -84,6 +93,9 @@ const fetcher = async () => {
         tasa_int:          instr.tasa_int,
         emision:           instr.emision,
         ticker_usd:        instr.ticker_usd,
+        referencias:       instr.referencias,
+        margen_ref:        instr.margen_ref,
+        ajuste:            ajusteDe(instr),
       } : null,
       lastPrice: price ? {
         ...price,
@@ -108,6 +120,11 @@ const fetcher = async () => {
   const uniqueEmisores = [...new Set(instrumentsData.map((i: any) => i.emisor).filter(Boolean))].sort() as string[]
   const uniqueLegislaciones = [...new Set(instrumentsData.map((i: any) => i.legislacion).filter(Boolean))].sort() as string[]
   const uniqueJurisdicciones = [...new Set(instrumentsData.map((i: any) => i.jurisdiccion_pago).filter(Boolean))].sort() as string[]
+  // Las más comunes primero; las que no estén en la lista, al final.
+  const ORDEN_AJUSTES = ["Hard dollar", "Dólar linked", "TAMAR", "Tasa fija", "CER", "BADLAR", "Dual"]
+  const uniqueAjustes = [...new Set(instrumentsData.map(ajusteDe))].sort(
+    (a, b) => (ORDEN_AJUSTES.indexOf(a) + 1 || 99) - (ORDEN_AJUSTES.indexOf(b) + 1 || 99),
+  )
 
   return {
     flowsData: allFlowsAdapted,
@@ -115,6 +132,7 @@ const fetcher = async () => {
     emisores: uniqueEmisores,
     legislaciones: uniqueLegislaciones,
     jurisdicciones: uniqueJurisdicciones,
+    ajustes: uniqueAjustes,
   }
 }
 
@@ -149,6 +167,7 @@ export default function ONSDashboard() {
   }
 
   const handleDetailsFiltersChange = (filters: {
+    ajuste?: string
     legislacion?: string
     jurisdiccionPago?: string
     emisores?: string[]
@@ -156,6 +175,7 @@ export default function ONSDashboard() {
   }) => {
     if (!data?.flowsWithDetails) return
     let filtered = [...data.flowsWithDetails]
+    if (filters.ajuste) filtered = filtered.filter((f) => f.details?.ajuste === filters.ajuste)
     if (filters.legislacion) filtered = filtered.filter((f) => f.details?.legislacion === filters.legislacion)
     if (filters.jurisdiccionPago) filtered = filtered.filter((f) => f.details?.jurisdiccion_pago === filters.jurisdiccionPago)
     if (filters.emisores?.length) filtered = filtered.filter((f) => filters.emisores!.includes(f.emisor))
@@ -211,7 +231,7 @@ export default function ONSDashboard() {
             <TabsTrigger value="flujos">Flujos de Pagos</TabsTrigger>
           </TabsList>
           <TabsContent value="detalles" className="space-y-6">
-            {data && <ONSDetailsFilters legislaciones={data.legislaciones} jurisdicciones={data.jurisdicciones} emisores={data.emisores} onFiltersChange={handleDetailsFiltersChange} />}
+            {data && <ONSDetailsFilters ajustes={data.ajustes} legislaciones={data.legislaciones} jurisdicciones={data.jurisdicciones} emisores={data.emisores} onFiltersChange={handleDetailsFiltersChange} />}
             <ONDetailsTable flows={filteredDetailsData} />
           </TabsContent>
           <TabsContent value="flujos" className="space-y-6">

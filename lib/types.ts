@@ -100,6 +100,8 @@ export type ONWithDetails = {
     ticker_usd?:       string | null
     referencias?:      string | null
     margen_ref?:       number | null
+    /** Hard dollar, Dólar linked, TAMAR, Tasa fija, ...: ver ajusteDe en ons/page. */
+    ajuste?:           string
   } | null
   lastPrice?: {
     symbol:        string
@@ -158,6 +160,8 @@ export type SoberanoWithDetails = {
     ticker_usd?:       string | null
     referencias?:      string | null
     margen_ref?:       number | null
+    /** Hard dollar, Dólar linked, TAMAR, Tasa fija, ...: ver ajusteDe en ons/page. */
+    ajuste?:           string
   } | null
   lastPrice?: {
     symbol:        string
@@ -228,6 +232,8 @@ export type DlkWithDetails = {
     ticker_usd?:       string | null
     referencias?:      string | null
     margen_ref?:       number | null
+    /** Hard dollar, Dólar linked, TAMAR, Tasa fija, ...: ver ajusteDe en ons/page. */
+    ajuste?:           string
   } | null
   lastPrice?: {
     symbol:        string
