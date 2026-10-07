@@ -171,7 +171,9 @@ export default function SoberanosDashboard() {
         <SoberanosDetailsTable flows={filteredDetailsData} />
         {data && (
           <CurvaForward
-            flows={data.flowsWithDetails}
+            // Los BOPREAL (BPOC, BPOD) son del BCRA, no del Tesoro: siguen en la
+            // tabla pero no entran a la curva soberana.
+            flows={data.flowsWithDetails.filter((f) => !/^BPO[CD]/.test(f.ticker))}
             titulo="Soberanos hard dollar"
             grupos={[
               { key: "arg", nombre: "Ley Argentina",  incluye: (f) => f?.details?.legislacion === "Argentina" },
